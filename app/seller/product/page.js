@@ -10,7 +10,7 @@ import ProductCard from "@/components/ProductCard";
 import { useDemo } from "@/lib/store";
 
 export default function SellerProduct() {
-  const { ready, product, setProduct, seller, showToast } = useDemo();
+  const { ready, product, saveProduct, seller, showToast } = useDemo();
   const [draft, setDraft] = useState(product);
   const seeded = useRef(false);
 
@@ -31,7 +31,7 @@ export default function SellerProduct() {
 
   const save = (e) => {
     e.preventDefault();
-    setProduct(draft);
+    saveProduct(draft);
     showToast("Listing saved");
   };
 

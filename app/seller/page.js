@@ -9,10 +9,10 @@ import { useDemo } from "@/lib/store";
 import { formatAccount } from "@/lib/orders";
 
 export default function SellerDashboard() {
-  const { ready, orders, seller, advance, showToast } = useDemo();
+  const { ready, orders, seller, markShipped, showToast } = useDemo();
 
   const ship = (order) => {
-    advance(order.id, "Shipped");
+    markShipped(order.id);
     showToast("Marked as shipped");
   };
 

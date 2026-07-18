@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { answerFor, suggestionsFor } from "@/lib/assistant";
+import { suggestionsFor } from "@/lib/assistant";
+import { api } from "@/lib/api";
 import Icon from "./Icon";
 
 // Order-scoped, embedded inline — deliberately not a floating chat bubble.
@@ -13,10 +14,14 @@ export default function AssistantPanel({ order }) {
   const ask = (text) => {
     setMsgs((m) => [...m, { role: "user", text }]);
     setThinking(true);
-    setTimeout(() => {
-      setMsgs((m) => [...m, { role: "assistant", text: answerFor(order, text) }]);
-      setThinking(false);
-    }, 700);
+    const started = Date.now();
+    api.assistant.ask(order.id, text).then(({ answer }) => {
+      const wait = Math.max(0, 700 - (Date.now() - started));
+      setTimeout(() => {
+        setMsgs((m) => [...m, { role: "assistant", text: answer }]);
+        setThinking(false);
+      }, wait);
+    });
   };
 
   return (

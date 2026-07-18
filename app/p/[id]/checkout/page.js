@@ -17,9 +17,9 @@ export default function Checkout() {
   const [name, setName] = useState(buyer.name);
   const [phone, setPhone] = useState("");
 
-  const pay = (e) => {
+  const pay = async (e) => {
     e.preventDefault();
-    const order = createOrder({ buyerName: name });
+    const order = await createOrder({ buyerName: name });
     router.push(`/pay/${order.id}`);
   };
 

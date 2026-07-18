@@ -42,7 +42,12 @@ Open http://localhost:3000.
 
 ## Wiring the real backend
 
-Replace in `lib/store.jsx`: `createOrder` → POST /orders; the two `setTimeout`
-simulations in `app/pay/[orderId]/page.js` → your webhook-driven update
-(poll or socket); `advance`/`confirmDelivery` → their endpoints. The UI already
-renders purely from order `state` + `timestamps`, so nothing else should change.
+The whole client API surface lives in **`lib/api.js`** — one function per backend
+route, currently backed by the localStorage mock. Swap those function bodies for
+`fetch()` calls, and replace the three demo timers (two in
+`app/pay/[orderId]/page.js`, the settlement one in `lib/store.jsx`) with polling
+`GET /api/orders/:id` — nothing else in the app changes. The UI renders purely
+from order `state` + `timestamps`.
+
+Full route table, request/response shapes, exact state strings, and the honest
+list of undecided things: **`API_CONTRACT.md`**.
