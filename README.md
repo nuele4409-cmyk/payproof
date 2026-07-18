@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# PayProof — frontend
 
-## Getting Started
+Every sale verified by Monnify, not by screenshots. This is the frontend build from the
+master build prompt — Next.js (App Router) + Tailwind v4, custom components, no UI kit.
 
-First, run the development server:
+## Run it
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Demo flow (the judge walk)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. `/` — landing: fake-screenshot vs stamped-seal argument.
+2. `/register` — pick **Sell** → the Seal reveal (`/seller/welcome`): Ada's reserved
+   account number stamps onto the page.
+3. `/seller` — the ledger: reserved-account card (always on top), orders table,
+   **Mark as Shipped**, masked settlement account.
+4. `/seller/product` — one listing, live buyer preview.
+5. `/p/aj1-low` — what Tobi sees → **Proceed to Secure Payment** → checkout.
+6. `/pay/[orderId]` — **the centerpiece**: waiting state, then the PAID seal stamps
+   itself when the payment confirmation lands (simulated ~6.5s; no refresh, no button).
+7. `/orders/[id]` — six-state timeline, payment record, fraud flag (see `PP-3557-04`),
+   inline order-scoped assistant.
+8. `/buyer` — Tobi's orders → **Confirm Delivery** on the Shipped one → watch it settle
+   to Completed on its own.
 
-## Learn More
+"Reset demo data" in the app footer reseeds everything.
 
-To learn more about Next.js, take a look at the following resources:
+## Where things live
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Design tokens: `app/globals.css` (`@theme` — Parchment/Paper/Ink/Bottle/Brass/Rust,
+  radii, the seal-stamp keyframes). Fonts load in `app/layout.js` via `next/font`.
+- The Seal: `components/Seal.jsx` — used in exactly three places (account reveal,
+  Paid moment, verified badge). Don't add a fourth.
+- Order state machine + demo store: `lib/orders.js`, `lib/store.jsx`
+  (React context + localStorage; swap for real API calls later).
+- Assistant answers: `lib/assistant.js` — deterministic and rule-based on purpose.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Wiring the real backend
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Replace in `lib/store.jsx`: `createOrder` → POST /orders; the two `setTimeout`
+simulations in `app/pay/[orderId]/page.js` → your webhook-driven update
+(poll or socket); `advance`/`confirmDelivery` → their endpoints. The UI already
+renders purely from order `state` + `timestamps`, so nothing else should change.
