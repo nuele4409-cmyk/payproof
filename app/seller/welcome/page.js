@@ -41,7 +41,7 @@ export default function SellerWelcome() {
           <div className="absolute inset-0">
             <Seal size="100%" stamping className="h-full w-full">
               <span className="caption text-ink/60">{seller.name}</span>
-              <span className="lining mt-2 font-display text-[30px] font-semibold leading-none text-brass sm:text-[38px]">
+              <span className="lining mt-2 whitespace-nowrap font-display text-[26px] font-semibold leading-none text-brass sm:text-[31px]">
                 {formatAccount(seller.account.number)}
               </span>
               <span className="caption mt-3 text-ink/50">
