@@ -29,10 +29,14 @@ export default function SellerProduct() {
     reader.readAsDataURL(file);
   };
 
-  const save = (e) => {
+  const save = async (e) => {
     e.preventDefault();
-    saveProduct(draft);
-    showToast("Listing saved");
+    try {
+      await saveProduct(draft);
+      showToast("Listing saved");
+    } catch (err) {
+      showToast(err.message || "Could not save listing");
+    }
   };
 
   return (

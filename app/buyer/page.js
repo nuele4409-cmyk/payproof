@@ -10,14 +10,22 @@ import { useDemo } from "@/lib/store";
 import { useState } from "react";
 
 export default function BuyerDashboard() {
-  const { ready, orders, buyer, seller, confirmDelivery, showToast } = useDemo();
+  const { ready, orders, confirmDelivery, showToast } = useDemo();
   const [confirming, setConfirming] = useState(null);
-  const mine = orders.filter((o) => o.buyer === buyer.name);
+  // The store already scopes `orders` to this buyer's touched order-IDs
+  // (see BUYER_ORDER_IDS_KEY in lib/store.jsx), so no client-side filter here.
+  const mine = orders;
 
-  const confirm = (order) => {
+  const confirm = async (order) => {
     setConfirming(order.id);
-    confirmDelivery(order.id);
-    showToast("Delivery confirmed");
+    try {
+      await confirmDelivery(order.id);
+      showToast("Delivery confirmed");
+    } catch (e) {
+      showToast(e.message || "Could not confirm delivery");
+    } finally {
+      setConfirming(null);
+    }
   };
 
   return (
@@ -51,7 +59,7 @@ export default function BuyerDashboard() {
                 </div>
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                   <span className="flex items-center gap-1.5 text-[13px] text-ink/55">
-                    {seller.store} <Hallmark size={13} />
+                    {o.seller?.store ?? "Seller"} <Hallmark size={13} />
                     <span className="data text-[12px] text-ink/45">{o.id}</span>
                   </span>
                   <Amount className="data" value={o.amount} />

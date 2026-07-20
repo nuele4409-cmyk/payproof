@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import AppHeader, { AppFooter } from "@/components/AppHeader";
 import Amount from "@/components/Amount";
 import AssistantPanel from "@/components/AssistantPanel";
@@ -9,14 +10,32 @@ import Icon from "@/components/Icon";
 import StatusChip from "@/components/StatusChip";
 import Timeline from "@/components/Timeline";
 import { useDemo } from "@/lib/store";
+import { api } from "@/lib/api";
 import { formatDateTime } from "@/lib/orders";
 
 export default function OrderDetail() {
   const { id } = useParams();
-  const { ready, orders, seller, confirmDelivery, showToast } = useDemo();
-  const order = orders.find((o) => o.id === id);
+  const { confirmDelivery, showToast } = useDemo();
+  const [order, setOrder] = useState(null);
+  const [status, setStatus] = useState("loading");
 
-  if (!ready) {
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const o = await api.orders.get(id);
+        if (!alive) return;
+        if (!o) { setStatus("notfound"); return; }
+        setOrder(o);
+        setStatus("ready");
+      } catch {
+        if (alive) setStatus("notfound");
+      }
+    })();
+    return () => { alive = false; };
+  }, [id]);
+
+  if (status === "loading") {
     return (
       <div className="flex min-h-screen flex-col">
         <AppHeader />
@@ -27,7 +46,7 @@ export default function OrderDetail() {
     );
   }
 
-  if (!order) {
+  if (status === "notfound" || !order) {
     return (
       <div className="flex min-h-screen flex-col">
         <AppHeader />
@@ -43,10 +62,17 @@ export default function OrderDetail() {
     );
   }
 
-  const confirm = () => {
-    confirmDelivery(order.id);
-    showToast("Delivery confirmed");
+  const confirm = async () => {
+    try {
+      const updated = await confirmDelivery(order.id);
+      if (updated) setOrder({ ...order, ...updated });
+      showToast("Delivery confirmed");
+    } catch (e) {
+      showToast(e.message || "Could not confirm delivery");
+    }
   };
+
+  const seller = order.seller ?? { name: "", settlement: null, account: null };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -86,7 +112,7 @@ export default function OrderDetail() {
               <p className="text-sm leading-relaxed text-ink/70">
                 Has it arrived? Confirming releases{" "}
                 <Amount className="data text-[13px]" value={order.amount} /> to{" "}
-                {seller.name.split(" ")[0]}.
+                {seller.name ? seller.name.split(" ")[0] : "the seller"}.
               </p>
               <Button onClick={confirm}>Confirm Delivery</Button>
             </div>
@@ -94,14 +120,15 @@ export default function OrderDetail() {
           {order.state === "Delivered" && (
             <p className="mt-7 flex items-center gap-2.5 border-t border-ink/12 pt-5 text-sm text-ink/70">
               <span className="waiting-dot h-2 w-2 shrink-0 rounded-full bg-bottle" />
-              Delivery confirmed — settlement to {seller.settlement.bank}{" "}
-              {seller.settlement.masked} is finishing up.
+              Delivery confirmed — settlement
+              {seller.settlement ? ` to ${seller.settlement.bank} ${seller.settlement.masked}` : ""}
+              {" "}is finishing up.
             </p>
           )}
           {order.state === "Completed" && (
             <p className="mt-7 flex items-center gap-2 border-t border-ink/12 pt-5 text-sm text-ink/70">
               <Icon name="check" size={15} className="shrink-0 text-bottle" />
-              Funds released to {seller.settlement.bank} {seller.settlement.masked} — settlement
+              Funds released{seller.settlement ? ` to ${seller.settlement.bank} ${seller.settlement.masked}` : ""} — settlement
               complete.
             </p>
           )}
@@ -124,7 +151,7 @@ export default function OrderDetail() {
               </div>
               <div className="flex items-baseline justify-between gap-4">
                 <dt className="text-ink/55">Method</dt>
-                <dd>Transfer · {seller.account.bank}</dd>
+                <dd>Transfer{seller.account?.bank ? ` · ${seller.account.bank}` : ""}</dd>
               </div>
               <div className="flex items-baseline justify-between gap-4">
                 <dt className="text-ink/55">Confirmed</dt>

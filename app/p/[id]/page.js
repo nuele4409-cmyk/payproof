@@ -11,6 +11,7 @@ import { useDemo } from "@/lib/store";
 // The page Ada shares on WhatsApp — what Tobi lands on.
 export default function ProductPage() {
   const { product, seller } = useDemo();
+  const store = product?.seller?.store ?? seller.store ?? "Seller";
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -22,7 +23,7 @@ export default function ProductPage() {
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <Hallmark size={17} />
-              <span className="font-medium text-ink/80">{seller.store}</span>
+              <span className="font-medium text-ink/80">{store}</span>
               <span className="caption text-ink/45">Verified seller</span>
             </div>
 

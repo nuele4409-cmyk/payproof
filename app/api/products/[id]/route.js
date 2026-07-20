@@ -23,18 +23,25 @@ export async function GET(request, { params }) {
           ...(isNaN(Number(id)) ? [] : [{ id: Number(id) }]),
         ],
       },
+      include: { seller: { select: { name: true, store: true, verified: true } } },
     });
 
     if (!product) return notFound('Product not found.');
 
     logger.debug('Product fetched', { productSlug: product.slug, requestId });
 
+    const s = product.seller;
     return ok({
       id:          product.slug,
       name:        product.name,
       price:       product.price,
       description: product.description,
       image:       product.image ?? null,
+      seller: s ? {
+        name:     s.name,
+        store:    s.store ?? `${s.name}'s Store`,
+        verified: !!s.verified,
+      } : null,
     });
   } catch (err) {
     return serverError(err, 'GET /api/products/[id]', requestId);
@@ -88,6 +95,14 @@ export async function PUT(request, { params }) {
         description: description.trim(),
         image:       image ?? null,
       },
+    });
+
+    // Single-listing MVP: fraud check compares each payment to the seller's
+    // typical order size; with one product per seller, "typical" == its price.
+    // Seed it from the listing so the flag can actually trigger for real sellers.
+    await db.user.update({
+      where: { id: user.sub },
+      data:  { typicalOrder: price },
     });
 
     logger.info('Product upserted', {

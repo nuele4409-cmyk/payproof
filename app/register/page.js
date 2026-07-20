@@ -6,14 +6,47 @@ import { useState } from "react";
 import Button from "@/components/Button";
 import { Field } from "@/components/Field";
 import SegmentedControl from "@/components/SegmentedControl";
+import { useDemo } from "@/lib/store";
 
 export default function Register() {
   const router = useRouter();
-  const [role, setRole] = useState("seller");
+  const { register } = useDemo();
+  const [role, setRole]         = useState("seller");
+  const [name, setName]         = useState("");
+  const [contact, setContact]   = useState("");
+  const [password, setPassword] = useState("");
+  const [bvn, setBvn]           = useState("");
+  const [error, setError]       = useState(null);
+  const [busy, setBusy]         = useState(false);
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    router.push(role === "seller" ? "/seller/welcome" : "/buyer");
+    setError(null);
+
+    if (!name.trim() || !contact.trim() || !password) {
+      setError("Please fill in name, email, and password.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await register({
+        name: name.trim(),
+        contact: contact.trim(),
+        password,
+        role,
+        bvn: role === "seller" && bvn.trim() ? bvn.trim() : undefined,
+      });
+      router.push(role === "seller" ? "/seller/welcome" : "/buyer");
+    } catch (e) {
+      setError(e.message || "Sign-up failed.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -48,12 +81,17 @@ export default function Register() {
             name="name"
             placeholder={role === "seller" ? "Ada Okafor" : "Tobi Adeyemi"}
             autoComplete="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
           />
           <Field
-            label="Phone or email"
+            label="Email"
             name="contact"
-            placeholder="0803 123 4567"
-            autoComplete="tel"
+            type="email"
+            placeholder="you@example.com"
+            autoComplete="email"
+            value={contact}
+            onChange={(e) => setContact(e.target.value)}
           />
           <Field
             label="Password"
@@ -61,10 +99,29 @@ export default function Register() {
             type="password"
             placeholder="At least 8 characters"
             autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
 
-          <Button type="submit" className="w-full">
-            Create account
+          {role === "seller" && (
+            <Field
+              label="BVN (optional in sandbox)"
+              name="bvn"
+              inputMode="numeric"
+              placeholder="11-digit BVN"
+              autoComplete="off"
+              value={bvn}
+              onChange={(e) => setBvn(e.target.value)}
+              hint="Required by Monnify to open a real reserved account in production. Skip to use the sandbox test BVN."
+            />
+          )}
+
+          {error && (
+            <p role="alert" className="text-sm text-rust">{error}</p>
+          )}
+
+          <Button type="submit" className="w-full" disabled={busy}>
+            {busy ? "Creating your account…" : "Create account"}
           </Button>
           {role === "seller" && (
             <p className="caption text-center text-ink/45">

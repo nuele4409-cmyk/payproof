@@ -40,14 +40,23 @@ export default function AppHeader() {
 }
 
 export function AppFooter() {
-  const { reset } = useDemo();
+  const { user, logout } = useDemo();
   return (
     <footer className="mt-16 border-t border-ink/12">
       <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-8 sm:px-6">
         <span className="caption text-ink/40">Powered by Monnify</span>
-        <button onClick={reset} className="caption text-ink/40 transition-colors hover:text-rust">
-          Reset demo data
-        </button>
+        {user ? (
+          <button
+            onClick={logout}
+            className="caption text-ink/40 transition-colors hover:text-rust"
+          >
+            Sign out ({user.name})
+          </button>
+        ) : (
+          <Link href="/login" className="caption text-ink/40 transition-colors hover:text-ink">
+            Sign in
+          </Link>
+        )}
       </div>
     </footer>
   );

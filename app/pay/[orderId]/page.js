@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import AppHeader, { AppFooter } from "@/components/AppHeader";
 import Amount from "@/components/Amount";
 import Button from "@/components/Button";
@@ -10,44 +10,62 @@ import Seal from "@/components/Seal";
 import Timeline from "@/components/Timeline";
 import { useDemo } from "@/lib/store";
 import { formatAccount, formatTime, stateIndex } from "@/lib/orders";
+import { api } from "@/lib/api";
 
-// The demo's centerpiece: the payment confirmation arrives from the backend,
-// unprompted by anything on this page — no refresh button, no polling UI.
+// The demo's centerpiece: the payment confirmation arrives from the backend
+// (Monnify webhook → order state flip), unprompted by anything on this page
+// — no refresh button. We poll GET /api/orders/:id every 3s until the state
+// leaves "Pending Payment", per API_CONTRACT.md §4.
 export default function PayPage() {
   const { orderId } = useParams();
-  const { ready, orders, seller, advance, showToast } = useDemo();
-  const order = orders.find((o) => o.id === orderId);
-
-  // Remember whether this visit began at Pending Payment, so the stamp
-  // animation only plays when the confirmation actually lands live.
+  const { showToast } = useDemo();
+  const [order, setOrder] = useState(null);
+  const [status, setStatus] = useState("loading"); // loading | ready | notfound
   const sawPending = useRef(false);
-  if (order?.state === "Pending Payment") sawPending.current = true;
 
-  // Demo stand-in for the Monnify confirmation (the real app gets this
-  // pushed from the backend when the transfer lands).
   useEffect(() => {
-    if (!ready || !order || order.state !== "Pending Payment") return;
-    const t = setTimeout(() => advance(order.id, "Paid"), 6500);
-    return () => clearTimeout(t);
-  }, [ready, order?.state, order?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    let alive = true;
+    let timer = null;
 
-  // Shortly after the stamp, the order moves on to Awaiting Shipment.
-  useEffect(() => {
-    if (!ready || !order || order.state !== "Paid") return;
-    const t = setTimeout(() => advance(order.id, "Awaiting Shipment"), 3200);
-    return () => clearTimeout(t);
-  }, [ready, order?.state, order?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    const tick = async () => {
+      try {
+        const o = await api.orders.get(orderId);
+        if (!alive) return;
+        if (!o) {
+          setStatus("notfound");
+          return;
+        }
+        if (o.state === "Pending Payment") sawPending.current = true;
+        setOrder(o);
+        setStatus("ready");
+        // Keep polling while we're still waiting for the bank confirmation.
+        if (o.state === "Pending Payment") {
+          timer = setTimeout(tick, 3000);
+        }
+      } catch {
+        // Transient errors: retry on the same cadence rather than surfacing.
+        if (alive) timer = setTimeout(tick, 3000);
+      }
+    };
+
+    tick();
+    return () => {
+      alive = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [orderId]);
 
   const copy = async () => {
+    if (!order?.seller?.account?.number) return;
     try {
-      await navigator.clipboard.writeText(seller.account.number);
+      await navigator.clipboard.writeText(order.seller.account.number);
       showToast("Account number copied");
     } catch {
-      showToast(`Account number: ${seller.account.number}`);
+      showToast(`Account number: ${order.seller.account.number}`);
     }
   };
 
-  if (!ready) {
+  if (status === "loading") {
     return (
       <div className="flex min-h-screen flex-col">
         <AppHeader />
@@ -58,14 +76,15 @@ export default function PayPage() {
     );
   }
 
-  if (!order) {
+  if (status === "notfound" || !order) {
     return (
       <div className="flex min-h-screen flex-col">
         <AppHeader />
         <main className="mx-auto flex w-full max-w-[540px] flex-1 flex-col items-center justify-center px-4 text-center">
           <h1 className="display-l">Order not found</h1>
           <p className="mt-3 text-ink/60">
-            It may have been cleared by a demo reset. Start a new order from the storefront.
+            The link may be wrong or the order may have been cleared. Start a new order from
+            the storefront.
           </p>
           <Button href="/p/aj1-low" className="mt-6">
             Back to the storefront
@@ -78,6 +97,7 @@ export default function PayPage() {
 
   const paid = stateIndex(order.state) >= 1;
   const animate = sawPending.current && paid;
+  const account = order.seller?.account;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -92,29 +112,35 @@ export default function PayPage() {
             </h1>
 
             <section className="mt-6 rounded-card border border-ink/12 bg-paper p-5">
-              <dl className="space-y-4">
-                <div>
-                  <dt className="caption text-ink/45">Bank</dt>
-                  <dd className="mt-0.5 font-medium">{seller.account.bank}</dd>
-                </div>
-                <div>
-                  <dt className="caption text-ink/45">Account number</dt>
-                  <dd className="mt-0.5 flex items-center gap-2.5">
-                    <span className="data text-[24px]">{formatAccount(seller.account.number)}</span>
-                    <button
-                      onClick={copy}
-                      aria-label="Copy account number"
-                      className="rounded-control p-1.5 text-ink/50 transition-colors hover:bg-ink/5 hover:text-ink"
-                    >
-                      <Icon name="copy" size={16} />
-                    </button>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="caption text-ink/45">Account name</dt>
-                  <dd className="mt-0.5 font-medium">{seller.account.name}</dd>
-                </div>
-              </dl>
+              {account ? (
+                <dl className="space-y-4">
+                  <div>
+                    <dt className="caption text-ink/45">Bank</dt>
+                    <dd className="mt-0.5 font-medium">{account.bank}</dd>
+                  </div>
+                  <div>
+                    <dt className="caption text-ink/45">Account number</dt>
+                    <dd className="mt-0.5 flex items-center gap-2.5">
+                      <span className="data text-[24px]">{formatAccount(account.number)}</span>
+                      <button
+                        onClick={copy}
+                        aria-label="Copy account number"
+                        className="rounded-control p-1.5 text-ink/50 transition-colors hover:bg-ink/5 hover:text-ink"
+                      >
+                        <Icon name="copy" size={16} />
+                      </button>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="caption text-ink/45">Account name</dt>
+                    <dd className="mt-0.5 font-medium">{account.name}</dd>
+                  </div>
+                </dl>
+              ) : (
+                <p className="text-sm text-ink/60">
+                  This seller hasn’t finished setting up their reserved account yet.
+                </p>
+              )}
               <p className="mt-5 border-t border-ink/12 pt-4 text-[13px] text-ink/55">
                 Transfer the exact amount from any bank app. No screenshots needed — confirmation
                 comes from the bank.
@@ -147,8 +173,9 @@ export default function PayPage() {
             <div className={animate ? "rise-in-delayed" : ""}>
               <h1 className="display-l mt-8">Payment confirmed.</h1>
               <p className="mx-auto mt-3 max-w-[40ch] leading-relaxed text-ink/70">
-                <Amount value={order.amount} /> is now held by Monnify. Ada has been asked to ship —
-                nothing releases to her until you confirm delivery.
+                <Amount value={order.amount} /> is now held by Monnify.{" "}
+                {order.seller?.name?.split(" ")[0] ?? "The seller"} has been asked to ship —
+                nothing releases until you confirm delivery.
               </p>
               <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
                 <Button href={`/orders/${order.id}`}>

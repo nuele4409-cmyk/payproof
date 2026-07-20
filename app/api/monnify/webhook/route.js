@@ -82,7 +82,8 @@ export async function POST(request) {
     return ACK();
   }
 
-  const pendingOrder = await findPendingOrderBySeller(sellerId);
+  const amountPaid              = Math.round(Number(eventData.amountPaid ?? 0));
+  const pendingOrder = await findPendingOrderBySeller(sellerId, amountPaid);
 
   if (!pendingOrder) {
     logger.warn('Webhook: no pending order found for seller', {
@@ -92,7 +93,6 @@ export async function POST(request) {
     return ACK();
   }
 
-  const amountPaid              = Math.round(Number(eventData.amountPaid ?? 0));
   const { flagged, flagReason } = runFraudCheck(amountPaid, seller.typicalOrder);
 
   if (flagged) {
