@@ -8,6 +8,7 @@ import {
   forbidden,
   notFound,
   badRequest,
+  conflict,
   serverError,
 } from '../../../../../lib/apiResponse.js';
 
@@ -52,17 +53,40 @@ export async function POST(request, { params }) {
       );
     }
 
+    // Atomic claim: only one caller can flip payoutClaimedAt from null, so a
+    // retry, double-click, or replayed request past this point is rejected
+    // instead of firing a second real bank transfer.
+    const claim = await db.order.updateMany({
+      where: { id, payoutClaimedAt: null },
+      data:  { payoutClaimedAt: new Date() },
+    });
+
+    if (claim.count === 0) {
+      return conflict('A payout for this order has already been released or is in progress.');
+    }
+
     const payoutRef = `PAYOUT-${order.id}-${Date.now()}`;
 
-    const transfer = await singleTransfer({
-      amount: order.amount,
-      reference: payoutRef,
-      narration: `PayProof payout for order ${order.id}`,
-      destinationBankCode: seller.settlementBank,
-      destinationAccountNumber: seller.settlementNumber,
-      destinationAccountName: validated.accountName,
-      sourceAccountNumber: sourceAccount,
-    });
+    let transfer;
+    try {
+      transfer = await singleTransfer({
+        amount: order.amount,
+        reference: payoutRef,
+        narration: `PayProof payout for order ${order.id}`,
+        destinationBankCode: seller.settlementBank,
+        destinationAccountNumber: seller.settlementNumber,
+        destinationAccountName: validated.accountName,
+        sourceAccountNumber: sourceAccount,
+      });
+    } catch (transferErr) {
+      // Transfer never went out — release the claim so a real retry isn't
+      // permanently blocked by this attempt.
+      await db.order.update({
+        where: { id },
+        data:  { payoutClaimedAt: null },
+      }).catch(() => {});
+      throw transferErr;
+    }
 
     await db.order.update({
       where: { id },

@@ -67,6 +67,11 @@ model Order {
 
   timestamps Json @default("{}")
 
+  // Atomic claim guard for POST /api/payouts/release — set right before the
+  // Monnify transfer fires, cleared on failure, never on success. Deliberately
+  // separate from `state`/`timestamps` (frontend contract treats those as fixed).
+  payoutClaimedAt DateTime?
+
   sellerId Int
   seller   User @relation("SellerOrders", fields: [sellerId], references: [id])
 

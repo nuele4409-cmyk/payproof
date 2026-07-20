@@ -67,6 +67,11 @@ export async function PUT(request, { params }) {
     }
     if (!description?.trim())          return badRequest('description is required.');
 
+    const existing = await db.product.findUnique({ where: { slug: id } });
+    if (existing && existing.sellerId !== user.sub) {
+      return forbidden('You can only update your own product.');
+    }
+
     const product = await db.product.upsert({
       where:  { slug: id },
       create: {
@@ -84,10 +89,6 @@ export async function PUT(request, { params }) {
         image:       image ?? null,
       },
     });
-
-    if (product.sellerId !== user.sub) {
-      return forbidden('You can only update your own product.');
-    }
 
     logger.info('Product upserted', {
       productSlug: product.slug,

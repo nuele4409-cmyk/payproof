@@ -5,6 +5,7 @@ import db from '../../../../../lib/db.js';
 import {
   ok,
   unauthorized,
+  forbidden,
   notFound,
   badRequest,
   serverError,
@@ -21,6 +22,10 @@ export async function POST(request, { params }) {
 
     const dbOrder = await db.order.findUnique({ where: { id } });
     if (!dbOrder) return notFound(`Order ${id} not found.`);
+
+    if (dbOrder.sellerId === user.sub) {
+      return forbidden('Sellers cannot confirm delivery on their own orders.');
+    }
 
     let completed;
     try {
