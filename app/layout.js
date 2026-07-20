@@ -22,6 +22,15 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+// Every route in this app is auth-gated and fetches live data client-side —
+// static prerendering + long-lived CDN caching (Next's default for pages
+// with no dynamic APIs) caches an HTML shell that references a specific
+// build's JS chunk filenames. A later deploy replaces those chunk files,
+// so a cached shell from an old build 404s on hydration until the cache
+// expires or is cleared. Force every page to render fresh per request so
+// deploys can't leave stale shells stranded on devices/edges.
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "PayProof — Every sale verified by Monnify",
   description:
