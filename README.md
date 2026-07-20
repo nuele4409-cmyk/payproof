@@ -9,12 +9,11 @@ JS) + Tailwind v4 + Prisma + Postgres + Monnify.
 npm install
 cp .env.example .env.local          # then fill in the values (see below)
 npm run db:migrate:deploy           # apply the schema to your Postgres
-npm run db:seed                     # populate Ada, Tobi, and the AJ1 listing
 npm run dev
 ```
 
-Open http://localhost:3000. The demo accounts on the login page are wired to the seed —
-"Continue as Ada" / "Continue as Tobi" sign in with real bearer tokens.
+Open http://localhost:3000. There's no seed script — the first seller you register
+becomes the pilot seller.
 
 ## Environment variables
 
@@ -25,27 +24,36 @@ All of `.env.example` is required. A few land-mines:
   even if the DB isn't reachable — set them (real or dummy) in your platform's build env.
 - **`DATABASE_URL` vs `DIRECT_URL`**: on Supabase, `DATABASE_URL` should be the **pooled**
   (pgbouncer, port 6543) string for runtime; `DIRECT_URL` is the direct one, used only by
-  Prisma migrations. Swapping them exhausts connections under load.
-- **`MONNIFY_BASE_URL`**: keep `https://sandbox.monnify.com` for the demo. Real accounts
-  require a BVN (the register form has an optional field for it); the sandbox uses a test
-  BVN when none is provided.
+  Prisma migrations. Swapping them exhausts connections under load. On Railway Postgres
+  there's no pooler, so both point to the same URL: set `DIRECT_URL=${{Postgres.DATABASE_URL}}`.
+- **`MONNIFY_BASE_URL`**: `https://api.monnify.com` for production, `https://sandbox.monnify.com`
+  for testing. BVN is required at seller registration for both — the sandbox no longer
+  auto-fills a test BVN.
 - **`ALLOWED_ORIGINS`**: leave blank for local dev (allows all). In production set it to
   your exact domain(s), comma-separated.
 
-## Demo flow (the judge walk)
+## Live flow
 
-1. `/` — landing: fake-screenshot vs stamped-seal argument.
-2. `/login` → **Continue as Ada** → `/seller` (ledger, reserved account, orders).
-3. `/seller/product` — edit the one listing; live buyer preview on the side.
-4. Open a private window → `/p/aj1-low` → **Proceed to Secure Payment** → checkout.
-5. `/pay/[orderId]` — the centerpiece: waits, then the PAID seal stamps itself when the
-   Monnify webhook lands (poll every 3s; no refresh button). To trigger from the
-   sandbox: send a `SUCCESSFUL_TRANSACTION` payload to `/api/monnify/webhook`.
-6. `/orders/[id]` — six-state timeline, payment record, fraud flag if amount is unusual,
-   inline assistant.
-7. `/buyer` → **Confirm Delivery** on the shipped order → straight to Completed.
-8. On the seller side, the completed order can be paid out via `POST /api/payouts/release/:id`
-   (single-release enforced by the `Order.payoutClaimedAt` claim guard).
+1. Seller signs up at `/register` → picks **Sell** → provides real BVN → Monnify opens a
+   real reserved account; failure rolls back the signup so the seller can retry.
+2. Seller lands on `/seller/welcome` with the reserved account stamped, then `/seller` for
+   the ledger. Sets a settlement (payout) bank account in the settlement form.
+3. Seller edits their listing at `/seller/product`; buyers see it at `/p/aj1-low`.
+4. Buyer signs up at `/register` → picks **Buy** (no BVN needed for buyers), or logs in
+   from `/login`.
+5. Buyer clicks **Proceed to Secure Payment** → checkout requires auth, so unsigned
+   visitors are bounced to `/login?redirect=/p/…/checkout` and returned after login.
+6. `/pay/[orderId]` waits for the Monnify webhook (`/api/monnify/webhook`), polling
+   `GET /api/orders/:id` every 3s. The PAID seal stamps itself when payment lands.
+7. Seller marks as shipped from `/seller`; buyer confirms delivery from `/orders/[id]`.
+8. Seller releases payout from `/seller` — hits `POST /api/payouts/release/:id`, which
+   uses `Order.payoutClaimedAt` as an atomic single-release guard.
+
+**Multi-seller note (open):** the storefront URL is hardcoded to `/p/aj1-low` across
+navigation. Whichever seller registers first and saves a product owns that slug; other
+sellers can't save (ownership check on `PUT /api/products/:id`). This is a fixed "pilot
+seller" MVP shape. Onboarding multiple sellers needs per-seller slugs + updated nav —
+tracked as work not yet done.
 
 ## Architecture
 
@@ -86,9 +94,8 @@ The project targets **Railway** (persistent Node host, bundled Postgres). See
      rate limiter is fine — the code falls back to it when Upstash vars are absent.
 4. **Deploy Settings**:
    - **Build command**: `npm run build`
-   - **Start command**: `npm run db:migrate:deploy && npm run db:seed && npm start`
-     (the seed is idempotent; safe to run every deploy, and it populates the demo
-     accounts the login page's quick-links need).
+   - **Start command**: `npm run db:migrate:deploy && npm start`
+     (migrate:deploy is idempotent; safe to run every deploy).
 5. Push and let it build. First build ~2 min.
 6. Copy your Railway domain (e.g. `payproof-production.up.railway.app`). Set
    `ALLOWED_ORIGINS` to `https://<that>` and redeploy.

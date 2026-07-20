@@ -73,11 +73,13 @@ export default function SellerDashboard() {
           <h1 className="display-l">{seller.name ? `${seller.name.split(" ")[0]}'s ledger` : "Your ledger"}</h1>
           <div className="flex gap-2.5">
             <Button href="/seller/product" variant="secondary" size="sm">
-              Edit listing
+              {seller.storefrontSlug ? "Edit listing" : "Create listing"}
             </Button>
-            <Button href="/p/aj1-low" variant="secondary" size="sm">
-              View storefront
-            </Button>
+            {seller.storefrontSlug && (
+              <Button href={`/p/${seller.storefrontSlug}`} variant="secondary" size="sm">
+                View storefront
+              </Button>
+            )}
           </div>
         </div>
 
@@ -175,12 +177,24 @@ export default function SellerDashboard() {
             ) : orders.length === 0 ? (
               <div className="rounded-card border border-ink/12 bg-paper p-8 text-center">
                 <p className="text-ink/70">
-                  No orders yet — share your storefront on WhatsApp to make your first verified sale.
+                  {seller.storefrontSlug
+                    ? "No orders yet — share your storefront on WhatsApp to make your first verified sale."
+                    : "No listing yet — create one to start taking orders."}
                 </p>
-                <Button href="/p/aj1-low" variant="secondary" className="mt-4">
-                  <Icon name="link" size={15} />
-                  Open your storefront
-                </Button>
+                {seller.storefrontSlug ? (
+                  <Button
+                    href={`/p/${seller.storefrontSlug}`}
+                    variant="secondary"
+                    className="mt-4"
+                  >
+                    <Icon name="link" size={15} />
+                    Open your storefront
+                  </Button>
+                ) : (
+                  <Button href="/seller/product" variant="secondary" className="mt-4">
+                    Create your listing
+                  </Button>
+                )}
               </div>
             ) : (
               <LedgerTable

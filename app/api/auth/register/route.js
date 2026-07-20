@@ -113,11 +113,30 @@ export async function POST(request) {
 
         account = reserved;
       } catch (monnifyErr) {
-        logger.error('Monnify reserved account creation failed — registration continues', {
+        // Rollback the just-created User row so the seller can retry with
+        // a corrected BVN instead of being stuck as an orphaned account.
+        // Prisma FKs from Product/Order to User use RESTRICT, but at this
+        // point neither exists yet, so a straight delete is safe.
+        logger.error('Monnify reserved account creation failed — rolling back registration', {
           userId: user.id,
           err:    monnifyErr,
           requestId,
         });
+
+        try {
+          await db.user.delete({ where: { id: user.id } });
+        } catch (rollbackErr) {
+          logger.error('Rollback of user after Monnify failure also failed', {
+            userId: user.id,
+            err:    rollbackErr,
+            requestId,
+          });
+        }
+
+        return badRequest(
+          "We couldn't open your reserved account with Monnify. Please double-check " +
+          "the BVN you entered and try again."
+        );
       }
     }
 

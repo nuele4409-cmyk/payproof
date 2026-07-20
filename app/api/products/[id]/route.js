@@ -1,15 +1,10 @@
 import db from '../../../../lib/db.js';
-import { authenticate, getRequestId } from '../../../../lib/authHelpers.js';
+import { getRequestId } from '../../../../lib/authHelpers.js';
 import { logger } from '../../../../lib/logger.js';
-import {
-  ok,
-  badRequest,
-  unauthorized,
-  forbidden,
-  notFound,
-  serverError,
-} from '../../../../lib/apiResponse.js';
+import { ok, notFound, serverError } from '../../../../lib/apiResponse.js';
 
+// Public buyer-facing product read. Writes moved to PUT /api/seller/me/product
+// so sellers don't need to know their slug to save.
 export async function GET(request, { params }) {
   const requestId = getRequestId(request);
 
@@ -45,80 +40,5 @@ export async function GET(request, { params }) {
     });
   } catch (err) {
     return serverError(err, 'GET /api/products/[id]', requestId);
-  }
-}
-
-export async function PUT(request, { params }) {
-  const requestId = getRequestId(request);
-
-  try {
-    const user = authenticate(request);
-    if (!user) return unauthorized();
-    if (user.role !== 'seller') {
-      return forbidden('Only sellers can update products.');
-    }
-
-    const { id } = await params;
-    const body   = await request.json().catch(() => null);
-
-    if (!body || typeof body !== 'object') {
-      return badRequest('Request body must be JSON.');
-    }
-
-    const { name, price, description, image } = body;
-
-    if (!name?.trim())                 return badRequest('name is required.');
-    if (price === undefined || price === null) return badRequest('price is required.');
-    if (typeof price !== 'number' || !Number.isInteger(price) || price <= 0) {
-      return badRequest('price must be a positive integer (naira).');
-    }
-    if (!description?.trim())          return badRequest('description is required.');
-
-    const existing = await db.product.findUnique({ where: { slug: id } });
-    if (existing && existing.sellerId !== user.sub) {
-      return forbidden('You can only update your own product.');
-    }
-
-    const product = await db.product.upsert({
-      where:  { slug: id },
-      create: {
-        slug:        id,
-        name:        name.trim(),
-        price,
-        description: description.trim(),
-        image:       image ?? null,
-        sellerId:    user.sub,
-      },
-      update: {
-        name:        name.trim(),
-        price,
-        description: description.trim(),
-        image:       image ?? null,
-      },
-    });
-
-    // Single-listing MVP: fraud check compares each payment to the seller's
-    // typical order size; with one product per seller, "typical" == its price.
-    // Seed it from the listing so the flag can actually trigger for real sellers.
-    await db.user.update({
-      where: { id: user.sub },
-      data:  { typicalOrder: price },
-    });
-
-    logger.info('Product upserted', {
-      productSlug: product.slug,
-      sellerId:    user.sub,
-      requestId,
-    });
-
-    return ok({
-      id:          product.slug,
-      name:        product.name,
-      price:       product.price,
-      description: product.description,
-      image:       product.image ?? null,
-    });
-  } catch (err) {
-    return serverError(err, 'PUT /api/products/[id]', requestId);
   }
 }

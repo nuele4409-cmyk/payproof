@@ -83,12 +83,8 @@ export default function PayPage() {
         <main className="mx-auto flex w-full max-w-[540px] flex-1 flex-col items-center justify-center px-4 text-center">
           <h1 className="display-l">Order not found</h1>
           <p className="mt-3 text-ink/60">
-            The link may be wrong or the order may have been cleared. Start a new order from
-            the storefront.
+            The link may be wrong or the order may have been cleared.
           </p>
-          <Button href="/p/aj1-low" className="mt-6">
-            Back to the storefront
-          </Button>
         </main>
         <AppFooter />
       </div>
@@ -182,9 +178,11 @@ export default function PayPage() {
                   View order timeline
                   <Icon name="arrow-right" size={16} />
                 </Button>
-                <Button href="/p/aj1-low" variant="secondary">
-                  Back to the storefront
-                </Button>
+                {order.seller?.storefrontSlug && (
+                  <Button href={`/p/${order.seller.storefrontSlug}`} variant="secondary">
+                    Back to the storefront
+                  </Button>
+                )}
               </div>
             </div>
           </div>

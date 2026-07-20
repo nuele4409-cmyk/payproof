@@ -19,7 +19,10 @@ export async function GET(request) {
       return forbidden('This endpoint is for sellers only.');
     }
 
-    const seller = await db.user.findUnique({ where: { id: user.sub } });
+    const [seller, product] = await Promise.all([
+      db.user.findUnique({ where: { id: user.sub } }),
+      db.product.findFirst({ where: { sellerId: user.sub }, select: { slug: true } }),
+    ]);
     if (!seller) return notFound('Seller account not found.');
 
     const maskedSettlement = seller.settlementNumber
@@ -49,7 +52,8 @@ export async function GET(request) {
           }
         : null,
 
-      typicalOrder: seller.typicalOrder ?? null,
+      typicalOrder:   seller.typicalOrder ?? null,
+      storefrontSlug: product?.slug ?? null,
     });
   } catch (err) {
     return serverError(err, 'GET /api/seller/me', requestId);

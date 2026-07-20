@@ -26,9 +26,11 @@ export async function GET(request, { params }) {
         sellerId: true,
         seller: {
           select: {
+            id: true,
             name: true, store: true, verified: true,
             reservedBank: true, reservedNumber: true, reservedName: true,
             settlementBank: true, settlementNumber: true, settlementName: true,
+            products: { select: { slug: true }, take: 1 },
           },
         },
       },
@@ -49,6 +51,7 @@ export async function GET(request, { params }) {
         masked: `••••${s.settlementNumber.slice(-4)}`,
         name:   s.settlementName,
       } : null,
+      storefrontSlug: s.products?.[0]?.slug ?? null,
     } : null;
 
     logger.debug('Order fetched', { orderId: id, state: order.state, requestId });

@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useDemo } from "@/lib/store";
 
 const LINKS = [
-  { href: "/p/aj1-low", label: "Storefront", match: (p) => p.startsWith("/p/") },
   { href: "/buyer", label: "Buyer", match: (p) => p.startsWith("/buyer") || p.startsWith("/orders") || p.startsWith("/pay") },
   { href: "/seller", label: "Seller", match: (p) => p.startsWith("/seller") },
 ];

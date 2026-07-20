@@ -1,17 +1,64 @@
 "use client";
 
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import AppHeader, { AppFooter } from "@/components/AppHeader";
 import Amount from "@/components/Amount";
 import Button from "@/components/Button";
 import Icon from "@/components/Icon";
 import ProductImage from "@/components/ProductImage";
 import { Hallmark } from "@/components/Seal";
-import { useDemo } from "@/lib/store";
+import { api } from "@/lib/api";
 
-// The page Ada shares on WhatsApp — what Tobi lands on.
+// The page a seller shares on WhatsApp — the storefront for a single listing.
 export default function ProductPage() {
-  const { product, seller } = useDemo();
-  const store = product?.seller?.store ?? seller.store ?? "Seller";
+  const { id } = useParams();
+  const [product, setProduct] = useState(null);
+  const [status, setStatus]   = useState("loading");
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const p = await api.products.get(id);
+        if (!alive) return;
+        if (!p) { setStatus("notfound"); return; }
+        setProduct(p);
+        setStatus("ready");
+      } catch {
+        if (alive) setStatus("notfound");
+      }
+    })();
+    return () => { alive = false; };
+  }, [id]);
+
+  if (status === "loading") {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <AppHeader />
+        <main className="flex flex-1 items-center justify-center">
+          <p className="text-sm text-ink/45">Loading storefront…</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (status === "notfound" || !product) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <AppHeader />
+        <main className="mx-auto flex w-full max-w-[540px] flex-1 flex-col items-center justify-center px-4 text-center">
+          <h1 className="display-l">Storefront not found</h1>
+          <p className="mt-3 text-ink/60">
+            The link may be wrong, or this seller hasn't set up their listing yet.
+          </p>
+        </main>
+        <AppFooter />
+      </div>
+    );
+  }
+
+  const store = product.seller?.store ?? "Seller";
 
   return (
     <div className="flex min-h-screen flex-col">

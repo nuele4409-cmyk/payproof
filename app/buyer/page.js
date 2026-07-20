@@ -46,9 +46,6 @@ export default function BuyerDashboard() {
                 No purchases yet — orders you pay for through PayProof appear here with their full
                 payment record.
               </p>
-              <Button href="/p/aj1-low" variant="secondary" className="mt-4">
-                See a sample product
-              </Button>
             </div>
           ) : (
             mine.map((o) => (

@@ -40,39 +40,27 @@ export async function POST(request) {
       return badRequest('Request body must be JSON.');
     }
 
-    const { buyerName, productSlug, sellerContact } = body;
+    const { buyerName, productSlug } = body;
 
-    if (!buyerName?.trim()) {
-      return badRequest('buyerName is required.');
-    }
-    if (!productSlug?.trim()) {
-      return badRequest('productSlug is required (e.g. "aj1-low").');
-    }
+    if (!buyerName?.trim()) return badRequest('buyerName is required.');
+    if (!productSlug?.trim()) return badRequest('productSlug is required.');
 
-    let sellerId;
-    if (sellerContact) {
-      const seller = await db.user.findUnique({
-        where: { contact: sellerContact.trim().toLowerCase() },
-      });
-      if (!seller || seller.role !== 'seller') {
-        return badRequest('No seller found with that contact.');
-      }
-      sellerId = seller.id;
-    } else {
-      const seller = await db.user.findFirst({ where: { role: 'seller' } });
-      if (!seller) return badRequest('No seller account found.');
-      sellerId = seller.id;
-    }
+    // The seller is derived from the product — no separate sellerContact
+    // lookup, since each product already belongs to exactly one seller.
+    const product = await db.product.findUnique({
+      where: { slug: productSlug.trim() },
+    });
+    if (!product) return badRequest('That listing does not exist.');
 
     const order = await createOrder({
       buyerName:   buyerName.trim(),
-      sellerId,
-      productSlug: productSlug.trim(),
+      sellerId:    product.sellerId,
+      productSlug: product.slug,
     });
 
     logger.info('Order created via API', {
       orderId:  order.id,
-      sellerId,
+      sellerId: product.sellerId,
       amount:   order.amount,
       requestId,
     });

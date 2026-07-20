@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import Icon from "@/components/Icon";
-import { api, BUYER, SELLER, SEED_PRODUCT, tokenStore } from "./api";
+import { api, BUYER, SELLER, tokenStore } from "./api";
 
 // React state layer over lib/api.js. All reads/writes go through the api
 // client — this file mirrors results into context, owns the toast, and
@@ -45,8 +45,7 @@ function rememberBuyerOrderId(id) {
 export function DemoProvider({ children }) {
   const [user, setUser]       = useState(null); // { name, role } or null
   const [orders, setOrders]   = useState(null); // null until hydrated
-  const [product, setProduct] = useState(SEED_PRODUCT);
-  const [seller, setSeller]   = useState(SELLER); // display data for the current or product's seller
+  const [seller, setSeller]   = useState(SELLER); // hydrated when a seller signs in
   const [toast, setToast]     = useState(null);
   const toastTimer = useRef(null);
   const [refreshTick, setRefreshTick] = useState(0);
@@ -65,21 +64,6 @@ export function DemoProvider({ children }) {
     (async () => {
       const currentUser = tokenStore.getUser();
       if (alive) setUser(currentUser);
-
-      // Product is public and always needed.
-      try {
-        const prod = await api.products.get();
-        if (!alive) return;
-        setProduct(prod);
-        if (prod?.seller) {
-          setSeller((s) => ({
-            ...s,
-            name: prod.seller.name,
-            store: prod.seller.store,
-            verified: prod.seller.verified,
-          }));
-        }
-      } catch {}
 
       if (currentUser?.role === "seller") {
         try {
@@ -155,8 +139,8 @@ export function DemoProvider({ children }) {
     return order;
   }, [upsertOrder]);
 
-  const createOrder = useCallback(async ({ buyerName } = {}) => {
-    const { order } = await api.orders.create({ buyerName });
+  const createOrder = useCallback(async ({ buyerName, productSlug } = {}) => {
+    const { order } = await api.orders.create({ buyerName, productSlug });
     rememberBuyerOrderId(order.id);
     upsertOrder(order);
     return order;
@@ -172,8 +156,15 @@ export function DemoProvider({ children }) {
   }, [upsertOrder]);
 
   const saveProduct = useCallback(async (p) => {
-    const saved = await api.products.save(p);
-    setProduct(saved);
+    // Seller-scoped save (backend generates slug on first save from the
+    // signed-in user's id). Also refresh seller.me so storefrontSlug
+    // updates for the "View storefront" nav.
+    const saved = await api.seller.saveProduct(p);
+    try {
+      const me = await api.seller.me();
+      setSeller(me);
+    } catch {}
+    return saved;
   }, []);
 
   // Called by the pay page's polling and the order-detail page: refetch a
@@ -204,7 +195,6 @@ export function DemoProvider({ children }) {
       ready: orders !== null,
       user,
       orders: orders || [],
-      product,
       seller,
       buyer: user?.role === "buyer" ? { name: user.name } : BUYER,
       login,
@@ -220,7 +210,7 @@ export function DemoProvider({ children }) {
       showToast,
     }),
     [
-      orders, user, product, seller,
+      orders, user, seller,
       login, register, logout,
       saveProduct, saveSettlement, createOrder, markShipped, confirmDelivery, releasePayout, refreshOrder,
       showToast,

@@ -1,15 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import Button from "@/components/Button";
 import { Field } from "@/components/Field";
 import SegmentedControl from "@/components/SegmentedControl";
 import { useDemo } from "@/lib/store";
 
-export default function Register() {
+function safeRedirect(raw) {
+  if (!raw || typeof raw !== "string") return null;
+  if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw;
+}
+
+function RegisterInner() {
   const router = useRouter();
+  const params = useSearchParams();
+  const redirect = safeRedirect(params.get("redirect"));
   const { register } = useDemo();
   const [role, setRole]         = useState("seller");
   const [name, setName]         = useState("");
@@ -31,6 +39,13 @@ export default function Register() {
       setError("Password must be at least 8 characters.");
       return;
     }
+    if (role === "seller") {
+      const cleanBvn = bvn.replace(/\D/g, "");
+      if (cleanBvn.length !== 11) {
+        setError("BVN is required — 11 digits, as issued by your bank.");
+        return;
+      }
+    }
 
     setBusy(true);
     try {
@@ -39,9 +54,10 @@ export default function Register() {
         contact: contact.trim(),
         password,
         role,
-        bvn: role === "seller" && bvn.trim() ? bvn.trim() : undefined,
+        bvn: role === "seller" ? bvn.replace(/\D/g, "") : undefined,
       });
-      router.push(role === "seller" ? "/seller/welcome" : "/buyer");
+      const dest = redirect ?? (role === "seller" ? "/seller/welcome" : "/buyer");
+      router.push(dest);
     } catch (e) {
       setError(e.message || "Sign-up failed.");
     } finally {
@@ -59,7 +75,7 @@ export default function Register() {
 
         <form onSubmit={submit} className="mt-7 space-y-5">
           <div>
-            <span className="text-sm font-medium text-ink/80">I’m here to</span>
+            <span className="text-sm font-medium text-ink/80">I'm here to</span>
             <SegmentedControl
               className="mt-1.5"
               value={role}
@@ -71,7 +87,7 @@ export default function Register() {
             />
             <p className="mt-2 text-[13px] leading-relaxed text-ink/55">
               {role === "seller"
-                ? "You’ll get a Monnify reserved account the moment you sign up — it’s the account your buyers pay into."
+                ? "You'll get a Monnify reserved account the moment you sign up — it's the account your buyers pay into. We need your BVN to open it."
                 : "Your payments are held by Monnify until you confirm delivery. Sellers never see a kobo before then."}
             </p>
           </div>
@@ -79,7 +95,7 @@ export default function Register() {
           <Field
             label="Full name"
             name="name"
-            placeholder={role === "seller" ? "Ada Okafor" : "Tobi Adeyemi"}
+            placeholder="Your full name"
             autoComplete="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -105,14 +121,14 @@ export default function Register() {
 
           {role === "seller" && (
             <Field
-              label="BVN (optional in sandbox)"
+              label="BVN"
               name="bvn"
               inputMode="numeric"
               placeholder="11-digit BVN"
               autoComplete="off"
               value={bvn}
               onChange={(e) => setBvn(e.target.value)}
-              hint="Required by Monnify to open a real reserved account in production. Skip to use the sandbox test BVN."
+              hint="Required by Monnify to open your reserved account. We only use it for account creation — we don't store it."
             />
           )}
 
@@ -132,11 +148,22 @@ export default function Register() {
 
         <p className="mt-7 border-t border-ink/12 pt-5 text-sm text-ink/60">
           Already have an account?{" "}
-          <Link href="/login" className="font-medium text-bottle underline-offset-2 hover:underline">
+          <Link
+            href={redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : "/login"}
+            className="font-medium text-bottle underline-offset-2 hover:underline"
+          >
             Sign in
           </Link>
         </p>
       </div>
     </div>
+  );
+}
+
+export default function Register() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterInner />
+    </Suspense>
   );
 }
