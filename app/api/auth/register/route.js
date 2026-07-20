@@ -18,7 +18,7 @@ export async function POST(request) {
   const requestId = getRequestId(request);
 
   const ip      = clientIp(request);
-  const { allowed, remaining, retryAfterMs } = checkRateLimit(
+  const { allowed, remaining, retryAfterMs } = await checkRateLimit(
     `register:${ip}`,
     5,
     15 * 60_000

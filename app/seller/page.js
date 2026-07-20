@@ -12,9 +12,10 @@ import { useDemo } from "@/lib/store";
 import { formatAccount } from "@/lib/orders";
 
 export default function SellerDashboard() {
-  const { ready, user, orders, seller, markShipped, saveSettlement, showToast } = useDemo();
+  const { ready, user, orders, seller, markShipped, saveSettlement, releasePayout, showToast } = useDemo();
   const router = useRouter();
   const [showSettlementForm, setShowSettlementForm] = useState(false);
+  const [releasingIds, setReleasingIds] = useState(() => new Set());
 
   if (user === null && ready) {
     // Not signed in — bounce to /login. Rendered inline instead of routed
@@ -28,6 +29,29 @@ export default function SellerDashboard() {
       showToast("Marked as shipped");
     } catch (e) {
       showToast(e.message || "Could not mark as shipped");
+    }
+  };
+
+  const release = async (order) => {
+    // Guard client-side too — the backend also 400s, but this avoids the
+    // round-trip and points the seller at the fix (the settlement form).
+    if (!seller.settlement?.masked && !seller.settlement?.number) {
+      showToast("Set a settlement account first");
+      setShowSettlementForm(true);
+      return;
+    }
+    setReleasingIds((prev) => new Set(prev).add(order.id));
+    try {
+      const result = await releasePayout(order.id);
+      showToast(`Paid out ₦${result.amount.toLocaleString("en-NG")} · ref ${result.payoutRef}`);
+    } catch (e) {
+      showToast(e.message || "Could not release payout");
+    } finally {
+      setReleasingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(order.id);
+        return next;
+      });
     }
   };
 
@@ -159,7 +183,12 @@ export default function SellerDashboard() {
                 </Button>
               </div>
             ) : (
-              <LedgerTable orders={orders} onShip={ship} />
+              <LedgerTable
+                orders={orders}
+                onShip={ship}
+                onRelease={release}
+                releasingIds={releasingIds}
+              />
             )}
           </div>
         </section>

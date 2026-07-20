@@ -190,6 +190,15 @@ export function DemoProvider({ children }) {
     return settlement;
   }, []);
 
+  const releasePayout = useCallback(async (id) => {
+    const result = await api.payouts.release(id);
+    // Payout doesn't change the order state, only stamps
+    // timestamps.PayoutSent — refetch so the ledger reflects it.
+    const fresh = await api.orders.get(id);
+    if (fresh) upsertOrder(fresh);
+    return result;
+  }, [upsertOrder]);
+
   const value = useMemo(
     () => ({
       ready: orders !== null,
@@ -206,13 +215,14 @@ export function DemoProvider({ children }) {
       createOrder,
       markShipped,
       confirmDelivery,
+      releasePayout,
       refreshOrder,
       showToast,
     }),
     [
       orders, user, product, seller,
       login, register, logout,
-      saveProduct, saveSettlement, createOrder, markShipped, confirmDelivery, refreshOrder,
+      saveProduct, saveSettlement, createOrder, markShipped, confirmDelivery, releasePayout, refreshOrder,
       showToast,
     ],
   );

@@ -6,7 +6,14 @@ import Button from "./Button";
 import Icon from "./Icon";
 import StatusChip from "./StatusChip";
 
-function RowAction({ order, onShip }) {
+// Completed orders live in two sub-states from the seller's point of view:
+// released (timestamps.PayoutSent stamped by the release endpoint) and not
+// yet released. The state string doesn't split these — check the stamp.
+function paidOut(order) {
+  return !!order.timestamps?.PayoutSent;
+}
+
+function RowAction({ order, onShip, onRelease, releasing }) {
   if (order.state === "Awaiting Shipment") {
     return (
       <Button size="sm" onClick={() => onShip(order)}>
@@ -17,7 +24,19 @@ function RowAction({ order, onShip }) {
   if (order.state === "Pending Payment") return <span className="caption text-ink/45">Awaiting transfer</span>;
   if (order.state === "Shipped") return <span className="caption text-ink/45">With courier</span>;
   if (order.state === "Delivered") return <span className="caption text-ink/45">Settling…</span>;
-  if (order.state === "Completed") return <span className="caption text-bottle">Settled</span>;
+  if (order.state === "Completed") {
+    if (paidOut(order)) {
+      return <span className="caption text-bottle inline-flex items-center gap-1"><Icon name="check" size={12} /> Paid out</span>;
+    }
+    if (onRelease) {
+      return (
+        <Button size="sm" onClick={() => onRelease(order)} disabled={releasing}>
+          {releasing ? "Releasing…" : "Release payout"}
+        </Button>
+      );
+    }
+    return <span className="caption text-bottle">Settled</span>;
+  }
   return null;
 }
 
@@ -32,7 +51,9 @@ function Ref({ order }) {
   );
 }
 
-export default function LedgerTable({ orders, onShip }) {
+export default function LedgerTable({ orders, onShip, onRelease, releasingIds }) {
+  const isReleasing = (id) => releasingIds?.has(id);
+
   return (
     <>
       {/* ledger table — hairlines rule off the rows, like a real ledger */}
@@ -64,7 +85,7 @@ export default function LedgerTable({ orders, onShip }) {
                 <StatusChip state={o.state} />
               </td>
               <td className="py-3.5 text-right">
-                <RowAction order={o} onShip={onShip} />
+                <RowAction order={o} onShip={onShip} onRelease={onRelease} releasing={isReleasing(o.id)} />
               </td>
             </tr>
           ))}
@@ -94,8 +115,17 @@ export default function LedgerTable({ orders, onShip }) {
                 <Button size="sm" className="w-full" onClick={() => onShip(o)}>
                   Mark as Shipped
                 </Button>
+              ) : o.state === "Completed" && !paidOut(o) && onRelease ? (
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={() => onRelease(o)}
+                  disabled={isReleasing(o.id)}
+                >
+                  {isReleasing(o.id) ? "Releasing…" : "Release payout"}
+                </Button>
               ) : (
-                <RowAction order={o} onShip={onShip} />
+                <RowAction order={o} onShip={onShip} onRelease={onRelease} releasing={isReleasing(o.id)} />
               )}
             </div>
           </div>

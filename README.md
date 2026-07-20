@@ -64,9 +64,12 @@ still-undecided things: **`API_CONTRACT.md`**.
 
 - **Run migrations on deploy**: `npm run db:migrate:deploy` (uses `prisma migrate deploy`,
   non-interactive, safe for CI).
-- **Rate limiting** (`lib/rateLimit.js`) is an in-memory `Map` — fine on a single
-  persistent Node host, but resets per-instance on serverless (Vercel, Cloudflare Workers).
-  On serverless, swap to Upstash/Redis or your platform's KV before going live.
+- **Rate limiting** (`lib/rateLimit.js`) auto-selects backend by env: if
+  `UPSTASH_REDIS_REST_URL` and `_TOKEN` are set it uses Upstash Redis (safe on
+  Vercel/serverless), otherwise it falls back to an in-memory `Map` (fine on a
+  single persistent Node host, resets per-instance on serverless — meaning
+  attackers can bypass limits by hitting cold starts). **Set the Upstash vars for
+  Vercel** — free tier is enough for this app.
 - **Webhook URL**: point Monnify's dashboard at `https://<your-host>/api/monnify/webhook`.
   The route verifies HMAC-SHA512 (from `MONNIFY_SECRET_KEY`) and cross-checks the
   transaction against Monnify's API before advancing an order.

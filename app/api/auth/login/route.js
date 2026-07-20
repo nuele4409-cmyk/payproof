@@ -9,7 +9,7 @@ export async function POST(request) {
   const requestId = getRequestId(request);
 
   const ip = clientIp(request);
-  const { allowed, retryAfterMs } = checkRateLimit(
+  const { allowed, retryAfterMs } = await checkRateLimit(
     `login:${ip}`,
     10,
     60_000
