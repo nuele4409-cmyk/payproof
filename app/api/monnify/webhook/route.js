@@ -114,7 +114,7 @@ export async function POST(request) {
       transactionRef,
       err: verifyErr,
     });
-    return ACK();
+    return new Response('Verification failed', { status: 500 });
   }
 
   if (verifiedStatus !== 'PAID') {
