@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AppHeader, { AppFooter } from "@/components/AppHeader";
 import Amount from "@/components/Amount";
 import Button from "@/components/Button";
@@ -25,9 +25,13 @@ export default function Checkout() {
   const [error, setError] = useState(null);
 
   // Prefill from the signed-in user's name once hydration finishes.
+  const prefilled = useRef(false);
   useEffect(() => {
-    if (user?.name && !name) setName(user.name);
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (user?.name && !prefilled.current) {
+      prefilled.current = true;
+      setName(user.name);
+    }
+  }, [user]);
 
   useEffect(() => {
     let alive = true;
@@ -161,7 +165,7 @@ export default function Checkout() {
             )}
           </Button>
           <p className="caption text-center text-ink/45">
-            You'll get a dedicated account number on the next screen
+            You&apos;ll get a dedicated account number on the next screen
           </p>
         </form>
       </main>

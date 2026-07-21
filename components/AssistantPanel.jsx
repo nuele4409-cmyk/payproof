@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { suggestionsFor } from "@/lib/assistant";
 import { api } from "@/lib/api";
 import Icon from "./Icon";
@@ -11,7 +11,7 @@ export default function AssistantPanel({ order }) {
   const [q, setQ] = useState("");
   const [thinking, setThinking] = useState(false);
 
-  const ask = (text) => {
+  const ask = useCallback((text) => {
     setMsgs((m) => [...m, { role: "user", text }]);
     setThinking(true);
     const started = Date.now();
@@ -22,7 +22,7 @@ export default function AssistantPanel({ order }) {
         setThinking(false);
       }, wait);
     });
-  };
+  }, [order.id]);
 
   return (
     <section aria-label="Order assistant" className="rounded-card border border-ink/12 bg-paper p-5">

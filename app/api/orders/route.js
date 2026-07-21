@@ -1,6 +1,7 @@
 import { authenticate, getRequestId } from '../../../lib/authHelpers.js';
 import { createOrder, listOrders } from '../../../lib/orderService.js';
 import { logger } from '../../../lib/logger.js';
+import { checkRateLimit, tooManyRequests, clientIp } from '../../../lib/rateLimit.js';
 import {
   ok,
   badRequest,
@@ -33,6 +34,17 @@ export async function GET(request) {
 export async function POST(request) {
   const requestId = getRequestId(request);
 
+  const ip = clientIp(request);
+  const { allowed, retryAfterMs } = await checkRateLimit(
+    `order:create:${ip}`,
+    20,
+    60_000
+  );
+  if (!allowed) {
+    logger.warn('Order creation rate limit exceeded', { ip, requestId });
+    return tooManyRequests(retryAfterMs);
+  }
+
   try {
     const body = await request.json().catch(() => null);
 
@@ -52,11 +64,16 @@ export async function POST(request) {
     });
     if (!product) return badRequest('That listing does not exist.');
 
+    // If the buyer is authenticated, record their userId so
+    // confirm-delivery can verify they are the actual buyer.
+    const user = authenticate(request);
+
     const order = await createOrder({
       buyerName:   buyerName.trim(),
       sellerId:    product.sellerId,
       productSlug: product.slug,
       phone:       phone?.trim() || null,
+      buyerId:     user?.sub ?? null,
     });
 
     logger.info('Order created via API', {

@@ -75,7 +75,7 @@ function RegisterInner() {
 
         <form onSubmit={submit} className="mt-7 space-y-5">
           <div>
-            <span className="text-sm font-medium text-ink/80">I'm here to</span>
+            <span className="text-sm font-medium text-ink/80">I&apos;m here to</span>
             <SegmentedControl
               className="mt-1.5"
               value={role}

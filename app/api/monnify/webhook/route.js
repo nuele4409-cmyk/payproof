@@ -9,6 +9,7 @@ import db from '../../../../lib/db.js';
 
 export const dynamic = 'force-dynamic';
 
+const MONNIFY_IP = '35.242.133.146';
 const ACK = () => new Response('OK', { status: 200 });
 
 export async function POST(request) {
@@ -24,6 +25,18 @@ export async function POST(request) {
   }
 
   const isSandbox = (process.env.MONNIFY_BASE_URL ?? '').includes('sandbox');
+
+  // IP whitelist — defense-in-depth even with HMAC
+  if (!isSandbox) {
+    const callerIp =
+      request.headers.get('x-real-ip') ??
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+    if (callerIp && callerIp !== MONNIFY_IP) {
+      logger.warn('Webhook: request from unexpected IP — rejected', { callerIp });
+      return ACK();
+    }
+  }
+
   const signature = request.headers.get('monnify-signature');
 
   if (!isSandbox) {
@@ -54,24 +67,77 @@ export async function POST(request) {
     return ACK();
   }
 
-  const existingEvent = await db.webhookEvent.findUnique({
-    where: { id: transactionRef },
-  });
-
-  if (existingEvent?.processed) {
-    logger.info('Webhook: duplicate event ignored', { transactionRef });
-    return ACK();
+  // Atomic dedup: claim this event via WebhookEvent row BEFORE the ACK so
+  // dedup survives a serverless function kill. If the row already exists:
+  //   - processed: true   → ACK (already handled)
+  //   - processed: false  → previous invocation crashed → delete + re-claim
+  let claimed = false;
+  try {
+    await db.webhookEvent.create({
+      data: { id: transactionRef, processed: false, payload: eventData },
+    });
+    claimed = true;
+  } catch (err) {
+    if (err.code === 'P2002') {
+      const existing = await db.webhookEvent.findUnique({ where: { id: transactionRef } });
+      if (existing && !existing.processed) {
+        logger.warn('Webhook: previous invocation crashed — re-processing', { transactionRef });
+        await db.webhookEvent.delete({ where: { id: transactionRef } }).catch(() => {});
+      } else {
+        logger.info('Webhook: duplicate event ignored (already processed)', { transactionRef });
+        return ACK();
+      }
+    } else {
+      throw err;
+    }
   }
 
+  if (!claimed) {
+    try {
+      await db.webhookEvent.create({
+        data: { id: transactionRef, processed: false, payload: eventData },
+      });
+      claimed = true;
+    } catch {
+      logger.error('Webhook: failed to claim event after retry', { transactionRef });
+      return ACK();
+    }
+  }
+
+  // ACK now — the dedup row is committed. Heavy processing continues below.
+  // In production serverless, offload to a queue (SQS, RabbitMQ) instead
+  // of relying on the function's lifetime after response.
+  const processing = handleNotification(transactionRef, eventData, isSandbox);
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    // Fire-and-forget: the runtime may terminate before this completes.
+    // The dedup is already persisted so the event won't be double-processed,
+    // but on failure the WebhookEvent row is deleted so Monnify's retry
+    // can re-process.
+    processing.catch((err) => {
+      logger.error('Webhook: background processing failed', { transactionRef, err });
+    });
+  } else {
+    await processing;
+  }
+
+  return ACK();
+}
+
+async function removeClaim(transactionRef) {
+  await db.webhookEvent.delete({ where: { id: transactionRef } }).catch(() => {});
+}
+
+export async function handleNotification(transactionRef, eventData, isSandbox) {
   const accountReference = eventData?.product?.reference ?? '';
-  const sellerIdMatch    = accountReference.match(/^PAYPROOF-USER-(\d+)$/);
+  const sellerIdMatch    = accountReference.match(/^PAYPROOF-USER-(\d+)/);
 
   if (!sellerIdMatch) {
     logger.error('Webhook: cannot parse sellerId from accountReference', {
       accountReference,
       transactionRef,
     });
-    return ACK();
+    await removeClaim(transactionRef);
+    return;
   }
 
   const sellerId = Number(sellerIdMatch[1]);
@@ -79,7 +145,8 @@ export async function POST(request) {
 
   if (!seller) {
     logger.error('Webhook: seller not found', { sellerId, transactionRef });
-    return ACK();
+    await removeClaim(transactionRef);
+    return;
   }
 
   const amountPaid              = Math.round(Number(eventData.amountPaid ?? 0));
@@ -90,7 +157,13 @@ export async function POST(request) {
       sellerId,
       transactionRef,
     });
-    return ACK();
+    // Permanent — no order will appear on retry. Stop claiming so retries
+    // also stop.
+    await db.webhookEvent.update({
+      where: { id: transactionRef },
+      data:  { processed: true },
+    }).catch(() => {});
+    return;
   }
 
   const { flagged, flagReason } = runFraudCheck(amountPaid, seller.typicalOrder);
@@ -110,11 +183,12 @@ export async function POST(request) {
     verifiedStatus = verified.paymentStatus;
     verifiedAmount = verified.amountPaid;
   } catch (verifyErr) {
-    logger.error('Webhook: Monnify API verification failed — rejecting', {
+    logger.error('Webhook: Monnify API verification failed — removing claim for retry', {
       transactionRef,
       err: verifyErr,
     });
-    return new Response('Verification failed', { status: 500 });
+    await removeClaim(transactionRef);
+    return;
   }
 
   if (verifiedStatus !== 'PAID') {
@@ -122,7 +196,12 @@ export async function POST(request) {
       transactionRef,
       paymentStatus: verifiedStatus,
     });
-    return ACK();
+    // Permanent — won't change on retry. Stop claiming.
+    await db.webhookEvent.update({
+      where: { id: transactionRef },
+      data:  { processed: true },
+    }).catch(() => {});
+    return;
   }
 
   if (verifiedAmount !== amountPaid) {
@@ -131,7 +210,12 @@ export async function POST(request) {
       webhookAmount: amountPaid,
       apiAmount: verifiedAmount,
     });
-    return ACK();
+    // Permanent — won't change on retry. Stop claiming.
+    await db.webhookEvent.update({
+      where: { id: transactionRef },
+      data:  { processed: true },
+    }).catch(() => {});
+    return;
   }
 
   logger.info('Webhook: transaction verified via Monnify API', {
@@ -142,17 +226,11 @@ export async function POST(request) {
 
   try {
     await db.$transaction(async (tx) => {
-      await tx.webhookEvent.upsert({
-        where:  { id: transactionRef },
-        create: { id: transactionRef, processed: false, payload },
-        update: { payload },
-      });
-
       await advanceState(
         pendingOrder.id,
         'Paid',
         { ref: transactionRef, flagged, flagReason },
-        tx
+        tx,
       );
 
       await advanceState(pendingOrder.id, 'Awaiting Shipment', {}, tx);
@@ -170,12 +248,11 @@ export async function POST(request) {
       flagged,
     });
   } catch (err) {
-    logger.error('Webhook: atomic transaction failed', {
+    logger.error('Webhook: atomic transaction failed — removing claim for retry', {
       orderId:      pendingOrder.id,
       transactionRef,
       err,
     });
+    await removeClaim(transactionRef);
   }
-
-  return ACK();
 }

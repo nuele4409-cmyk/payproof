@@ -1,4 +1,3 @@
-import { getOrder } from '../../../../lib/orderService.js';
 import { getRequestId } from '../../../../lib/authHelpers.js';
 import { logger } from '../../../../lib/logger.js';
 import { ok, notFound, serverError } from '../../../../lib/apiResponse.js';
@@ -9,20 +8,13 @@ export async function GET(request, { params }) {
 
   try {
     const { id } = await params;
-    const order  = await getOrder(id);
 
-    if (!order) {
-      logger.warn('Order not found', { orderId: id, requestId });
-      return notFound(`Order ${id} not found.`);
-    }
-
-    // Attach the seller display info the buyer-facing pay page and order
-    // timeline render — the seller's reserved account (where the buyer sent
-    // the money) and the masked settlement account (where it settles). Kept
-    // narrow: only what the UI already surfaces.
     const dbOrder = await db.order.findUnique({
       where:  { id },
       select: {
+        id: true, ref: true, buyer: true, phone: true, item: true,
+        amount: true, state: true, flagged: true, flagReason: true,
+        timestamps: true,
         sellerId: true,
         seller: {
           select: {
@@ -36,7 +28,20 @@ export async function GET(request, { params }) {
       },
     });
 
-    const s = dbOrder?.seller;
+    if (!dbOrder) {
+      logger.warn('Order not found', { orderId: id, requestId });
+      return notFound(`Order ${id} not found.`);
+    }
+
+    const s = dbOrder.seller;
+    const order = {
+      id: dbOrder.id, ref: dbOrder.ref,
+      buyer: dbOrder.buyer, phone: dbOrder.phone ?? undefined,
+      item: dbOrder.item, amount: dbOrder.amount,
+      state: dbOrder.state, flagged: dbOrder.flagged,
+      flagReason: dbOrder.flagReason ?? undefined,
+      timestamps: dbOrder.timestamps,
+    };
     const seller = s ? {
       name:     s.name,
       store:    s.store ?? `${s.name}'s Store`,

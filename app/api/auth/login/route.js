@@ -9,7 +9,7 @@ export async function POST(request) {
   const requestId = getRequestId(request);
 
   const ip = clientIp(request);
-  const { allowed, retryAfterMs } = await checkRateLimit(
+  const { allowed, remaining, retryAfterMs } = await checkRateLimit(
     `login:${ip}`,
     10,
     60_000
@@ -36,13 +36,22 @@ export async function POST(request) {
       where: { contact: contact.trim().toLowerCase() },
     });
 
+    // Real bcrypt hash of a throwaway string — same cost (12) as production
+    // hashes so bcrypt.compare takes the same wall-clock time whether the
+    // user exists or not, preventing a timing oracle.
     const DUMMY_HASH =
-      '$2b$12$invalidhashusedtoblindthetimingXXXXXXXXXXXXXXXXXX';
+      '$2b$12$VaDaUcesH2bp5a5McTmhKOMpxMwQbIzZePWv04NWcktbu3nLLzCNq';
 
-    const passwordMatch = await bcrypt.compare(
-      password,
-      user?.passwordHash ?? DUMMY_HASH
-    );
+    let passwordMatch = false;
+    try {
+      passwordMatch = await bcrypt.compare(
+        password,
+        user?.passwordHash ?? DUMMY_HASH
+      );
+    } catch {
+      // bcrypt throws on invalid hash format — treat as no match so we
+      // never leak existence via a 500 vs 401 distinction.
+    }
 
     if (!user || !passwordMatch) {
       logger.warn('Login failed — invalid credentials', {

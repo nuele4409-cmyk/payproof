@@ -31,7 +31,7 @@ export function proxy(request) {
   }
 
   const requestId =
-    request.headers.get('x-request-id') ?? crypto.randomUUID();
+    request.headers.get('x-request-id') ?? globalThis.crypto.randomUUID();
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-request-id', requestId);
@@ -48,6 +48,11 @@ export function proxy(request) {
   response.headers.set('x-content-type-options', 'nosniff');
   response.headers.set('x-frame-options', 'DENY');
   response.headers.set('referrer-policy', 'strict-origin-when-cross-origin');
+  response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains');
+  response.headers.set(
+    'content-security-policy',
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+  );
   response.headers.set(
     'permissions-policy',
     'camera=(), microphone=(), geolocation=()'

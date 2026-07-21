@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AppHeader, { AppFooter } from "@/components/AppHeader";
 import Amount from "@/components/Amount";
 import Button from "@/components/Button";
@@ -18,7 +18,7 @@ export default function PayPage() {
   const [order, setOrder] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | ready | notfound
   const [simBusy, setSimBusy] = useState(false);
-  const sawPending = useRef(false);
+  const [animate, setAnimate] = useState(false);
 
   const poll = useCallback(async () => {
     try {
@@ -40,8 +40,12 @@ export default function PayPage() {
       const o = await api.orders.get(orderId);
       if (!alive) return;
       if (!o) { setStatus("notfound"); return; }
-      if (o.state === "Pending Payment") sawPending.current = true;
-      setOrder(o);
+      setOrder((prev) => {
+        if (prev?.state === "Pending Payment" && o.state !== "Pending Payment") {
+          setAnimate(true);
+        }
+        return o;
+      });
       setStatus("ready");
       if (o.state === "Pending Payment") {
         timer = setTimeout(tick, 3000);
@@ -111,7 +115,6 @@ export default function PayPage() {
   }
 
   const paid = stateIndex(order.state) >= 1;
-  const animate = sawPending.current && paid;
   const account = order.seller?.account;
 
   return (

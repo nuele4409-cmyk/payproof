@@ -68,7 +68,7 @@ export default function SellerProduct() {
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
         <h1 className="display-l">Your listing</h1>
         <p className="mt-2 max-w-[52ch] text-ink/60">
-          One product for now — make it count. Buyers see exactly what's in the preview.
+          One product for now — make it count. Buyers see exactly what&apos;s in the preview.
         </p>
 
         {!loaded ? (

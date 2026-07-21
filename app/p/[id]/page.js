@@ -52,7 +52,7 @@ export default function ProductPage() {
         <main className="mx-auto flex w-full max-w-[540px] flex-1 flex-col items-center justify-center px-4 text-center">
           <h1 className="display-l">Storefront not found</h1>
           <p className="mt-3 text-ink/60">
-            The link may be wrong, or this seller hasn't set up their listing yet.
+            The link may be wrong, or this seller hasn&apos;t set up their listing yet.
           </p>
         </main>
         <AppFooter />

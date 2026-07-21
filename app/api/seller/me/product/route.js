@@ -71,6 +71,25 @@ export async function PUT(request) {
     }
     if (!description?.trim()) return badRequest('description is required.');
 
+    if (image !== undefined && image !== null) {
+      if (typeof image !== 'string') {
+        return badRequest('image must be a data URL string.');
+      }
+      if (!image.startsWith('data:image/')) {
+        return badRequest('image must be a data URL (data:image/...).');
+      }
+      if (image.length > 700_000) {
+        return badRequest('image must be under 700KB.');
+      }
+      if (image.length > 100_000) {
+        logger.warn('Product image is large for a data URL', {
+          userId: user.sub,
+          sizeKB: Math.round(image.length / 1000),
+          requestId,
+        });
+      }
+    }
+
     const existing = await db.product.findFirst({ where: { sellerId: user.sub } });
     const slug     = existing?.slug ?? slugForSeller(user.sub);
 

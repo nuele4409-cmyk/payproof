@@ -90,6 +90,26 @@ export async function POST(request, { params }) {
           destinationAccountName: validated.accountName,
           sourceAccountNumber: sourceAccount,
         });
+
+        if (transfer.status !== 'SUCCESS' && transfer.status !== 'COMPLETED') {
+          await db.order.update({
+            where: { id },
+            data:  { payoutClaimedAt: null },
+          }).catch(() => {});
+          return serverError(
+            new Error(
+              `Transfer returned "${transfer.status}" instead of SUCCESS. ` +
+              `Reference: ${transfer.reference}. ` +
+              (transfer.status === 'PENDING_AUTHORIZATION'
+                ? 'MFA (OTP) is enabled on your Monnify account — payouts cannot proceed ' +
+                  'automatically. Contact Monnify support to disable MFA for disbursements, ' +
+                  'or initiate this payout from the Monnify dashboard.'
+                : 'Contact support if this does not resolve.')
+            ),
+            'POST /api/payouts/release',
+            requestId
+          );
+        }
       } catch (transferErr) {
         // Transfer never went out — release the claim so a real retry isn't
         // permanently blocked by this attempt.
@@ -101,11 +121,13 @@ export async function POST(request, { params }) {
       }
     }
 
+    // Re-read order to get the freshest timestamps before appending.
+    const current = await db.order.findUnique({ where: { id } });
     await db.order.update({
       where: { id },
       data: {
         timestamps: {
-          ...(order.timestamps ?? {}),
+          ...(current.timestamps ?? {}),
           PayoutSent: new Date().toISOString(),
           payoutRef,
         },
@@ -131,9 +153,6 @@ export async function POST(request, { params }) {
       destinationName: validated.accountName,
     });
   } catch (err) {
-    if (err.message?.startsWith('[Monnify]')) {
-      return serverError(err, 'POST /api/payouts/release', requestId);
-    }
     return serverError(err, 'POST /api/payouts/release', requestId);
   }
 }

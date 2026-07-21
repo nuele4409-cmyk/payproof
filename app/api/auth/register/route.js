@@ -46,6 +46,16 @@ export async function POST(request) {
       return badRequest('role must be "seller" or "buyer".');
     }
 
+    if (role === 'seller') {
+      const cleanBvn = String(bvn ?? '').replace(/\D/g, '');
+      if (!cleanBvn) {
+        return badRequest('BVN is required for sellers.');
+      }
+      if (cleanBvn.length !== 11) {
+        return badRequest('BVN must be exactly 11 digits.');
+      }
+    }
+
     if (!EMAIL_RE.test(contact.trim())) {
       return badRequest(
         'contact must be a valid email address. ' +
@@ -99,7 +109,7 @@ export async function POST(request) {
           userId:  user.id,
           name:    user.name,
           contact: user.contact,
-          bvn:     bvn?.trim(),
+          bvn:     String(bvn ?? '').replace(/\D/g, ''),
         });
 
         await db.user.update({

@@ -27,6 +27,15 @@ export async function POST(request, { params }) {
       return forbidden('Sellers cannot confirm delivery on their own orders.');
     }
 
+    if (dbOrder.buyerId === null) {
+      return forbidden(
+        'This order was placed without an account. Contact support to confirm delivery.'
+      );
+    }
+    if (dbOrder.buyerId !== user.sub) {
+      return forbidden('Only the buyer who placed this order can confirm delivery.');
+    }
+
     let completed;
     try {
       completed = await db.$transaction(async (tx) => {
