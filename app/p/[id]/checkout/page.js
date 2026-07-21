@@ -16,7 +16,7 @@ import { api } from "@/lib/api";
 export default function Checkout() {
   const router = useRouter();
   const { id } = useParams();
-  const { ready, user, createOrder } = useDemo();
+  const { user, createOrder } = useDemo();
   const [product, setProduct] = useState(null);
   const [productStatus, setProductStatus] = useState("loading");
   const [name, setName] = useState("");
@@ -28,17 +28,6 @@ export default function Checkout() {
   useEffect(() => {
     if (user?.name && !name) setName(user.name);
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auth gate: /api/orders/[id]/confirm-delivery requires a token, and every
-  // real order should attach to a real buyer account. Bounce unsigned-in
-  // visitors to /login with a redirect back here.
-  useEffect(() => {
-    if (!ready) return;
-    if (!user) {
-      const back = `/p/${id}/checkout`;
-      router.replace(`/login?redirect=${encodeURIComponent(back)}`);
-    }
-  }, [ready, user, id, router]);
 
   useEffect(() => {
     let alive = true;
@@ -67,7 +56,7 @@ export default function Checkout() {
     }
     setBusy(true);
     try {
-      const order = await createOrder({ buyerName: name.trim(), productSlug: id });
+      const order = await createOrder({ buyerName: name.trim(), productSlug: id, phone: phone.trim() || undefined });
       router.push(`/pay/${order.id}`);
     } catch (err) {
       setError(err.message || "Could not start checkout.");
@@ -75,7 +64,7 @@ export default function Checkout() {
     }
   };
 
-  if (!ready || !user || productStatus === "loading") {
+  if (productStatus === "loading") {
     return (
       <div className="flex min-h-screen flex-col">
         <AppHeader />

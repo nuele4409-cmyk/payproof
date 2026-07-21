@@ -1,5 +1,5 @@
 import { authenticate, getRequestId } from '../../../../../lib/authHelpers.js';
-import { validateBankAccount, singleTransfer } from '../../../../../lib/monnifyClient.js';
+import { validateBankAccount, singleTransfer, isSandbox } from '../../../../../lib/monnifyClient.js';
 import { logger } from '../../../../../lib/logger.js';
 import db from '../../../../../lib/db.js';
 import {
@@ -39,10 +39,19 @@ export async function POST(request, { params }) {
       return badRequest('No settlement bank account configured. Add one in your profile.');
     }
 
-    const validated = await validateBankAccount(
-      seller.settlementBank,
-      seller.settlementNumber
-    );
+    let validated;
+    if (isSandbox()) {
+      validated = {
+        bankCode:       seller.settlementBank,
+        accountNumber:  seller.settlementNumber,
+        accountName:    seller.settlementName ?? 'Sandbox Account',
+      };
+    } else {
+      validated = await validateBankAccount(
+        seller.settlementBank,
+        seller.settlementNumber
+      );
+    }
 
     const sourceAccount = process.env.MONNIFY_WALLET_ACCOUNT_NUMBER;
     if (!sourceAccount) {
@@ -68,24 +77,28 @@ export async function POST(request, { params }) {
     const payoutRef = `PAYOUT-${order.id}-${Date.now()}`;
 
     let transfer;
-    try {
-      transfer = await singleTransfer({
-        amount: order.amount,
-        reference: payoutRef,
-        narration: `PayProof payout for order ${order.id}`,
-        destinationBankCode: seller.settlementBank,
-        destinationAccountNumber: seller.settlementNumber,
-        destinationAccountName: validated.accountName,
-        sourceAccountNumber: sourceAccount,
-      });
-    } catch (transferErr) {
-      // Transfer never went out — release the claim so a real retry isn't
-      // permanently blocked by this attempt.
-      await db.order.update({
-        where: { id },
-        data:  { payoutClaimedAt: null },
-      }).catch(() => {});
-      throw transferErr;
+    if (isSandbox()) {
+      transfer = { status: 'SANDBOX-SIMULATED', reference: payoutRef, amount: order.amount };
+    } else {
+      try {
+        transfer = await singleTransfer({
+          amount: order.amount,
+          reference: payoutRef,
+          narration: `PayProof payout for order ${order.id}`,
+          destinationBankCode: seller.settlementBank,
+          destinationAccountNumber: seller.settlementNumber,
+          destinationAccountName: validated.accountName,
+          sourceAccountNumber: sourceAccount,
+        });
+      } catch (transferErr) {
+        // Transfer never went out — release the claim so a real retry isn't
+        // permanently blocked by this attempt.
+        await db.order.update({
+          where: { id },
+          data:  { payoutClaimedAt: null },
+        }).catch(() => {});
+        throw transferErr;
+      }
     }
 
     await db.order.update({

@@ -40,7 +40,7 @@ export async function POST(request) {
       return badRequest('Request body must be JSON.');
     }
 
-    const { buyerName, productSlug } = body;
+    const { buyerName, productSlug, phone } = body;
 
     if (!buyerName?.trim()) return badRequest('buyerName is required.');
     if (!productSlug?.trim()) return badRequest('productSlug is required.');
@@ -56,6 +56,7 @@ export async function POST(request) {
       buyerName:   buyerName.trim(),
       sellerId:    product.sellerId,
       productSlug: product.slug,
+      phone:       phone?.trim() || null,
     });
 
     logger.info('Order created via API', {

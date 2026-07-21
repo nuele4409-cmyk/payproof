@@ -76,9 +76,25 @@ export default function SellerDashboard() {
               {seller.storefrontSlug ? "Edit listing" : "Create listing"}
             </Button>
             {seller.storefrontSlug && (
-              <Button href={`/p/${seller.storefrontSlug}`} variant="secondary" size="sm">
-                View storefront
-              </Button>
+              <>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    const url = `${window.location.origin}/p/${seller.storefrontSlug}`;
+                    navigator.clipboard.writeText(url).then(
+                      () => showToast("Storefront link copied"),
+                      () => showToast(url)
+                    );
+                  }}
+                >
+                  <Icon name="link" size={14} />
+                  Share link
+                </Button>
+                <Button href={`/p/${seller.storefrontSlug}`} variant="secondary" size="sm">
+                  View storefront
+                </Button>
+              </>
             )}
           </div>
         </div>
