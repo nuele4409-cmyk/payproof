@@ -8,11 +8,13 @@ import Button from "@/components/Button";
 import Icon from "@/components/Icon";
 import ProductImage from "@/components/ProductImage";
 import { Hallmark } from "@/components/Seal";
+import { useDemo } from "@/lib/store";
 import { api } from "@/lib/api";
 
 // The page a seller shares on WhatsApp — the storefront for a single listing.
 export default function ProductPage() {
   const { id } = useParams();
+  const { user } = useDemo();
   const [product, setProduct] = useState(null);
   const [status, setStatus]   = useState("loading");
 
@@ -79,13 +81,26 @@ export default function ProductPage() {
             <p className="mt-4 leading-relaxed text-ink/70">{product.description}</p>
 
             <div className="mt-8 border-t border-ink/12 pt-6">
-              <Button href={`/p/${product.id}/checkout`} size="lg" className="w-full">
-                Proceed to Secure Payment
-              </Button>
-              <p className="mt-3 flex items-center justify-center gap-1.5 text-[13px] text-ink/55">
-                <Icon name="lock" size={13} />
-                Held by Monnify until you confirm delivery
-              </p>
+              {user?.id === product.seller?.id ? (
+                <div className="space-y-3">
+                  <Button href="/seller/product" variant="secondary" size="lg" className="w-full">
+                    Edit this listing
+                  </Button>
+                  <Button href="/seller" variant="ghost" size="sm" className="w-full">
+                    Back to your ledger →
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Button href={`/p/${product.id}/checkout`} size="lg" className="w-full">
+                    Proceed to Secure Payment
+                  </Button>
+                  <p className="mt-3 flex items-center justify-center gap-1.5 text-[13px] text-ink/55">
+                    <Icon name="lock" size={13} />
+                    Held by Monnify until you confirm delivery
+                  </p>
+                </>
+              )}
             </div>
 
             <ul className="mt-6 space-y-2 text-[13px] text-ink/60">

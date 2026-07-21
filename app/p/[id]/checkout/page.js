@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import AppHeader, { AppFooter } from "@/components/AppHeader";
 import Amount from "@/components/Amount";
 import Button from "@/components/Button";
+import Icon from "@/components/Icon";
 import { Field } from "@/components/Field";
 import ProductImage from "@/components/ProductImage";
 import { Hallmark } from "@/components/Seal";
@@ -97,13 +99,34 @@ export default function Checkout() {
     );
   }
 
+  if (user?.id === product?.seller?.id) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <AppHeader />
+        <main className="mx-auto flex w-full max-w-[540px] flex-1 flex-col items-center justify-center px-4 text-center">
+          <h1 className="display-l">This is your listing</h1>
+          <p className="mt-3 text-ink/60">You can&apos;t purchase your own product. Share the storefront link with buyers instead.</p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <Button href={`/p/${id}`}>View storefront</Button>
+            <Button href="/seller" variant="secondary">Back to your ledger</Button>
+          </div>
+        </main>
+        <AppFooter />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <AppHeader />
       <main className="mx-auto w-full max-w-[540px] flex-1 px-4 py-8 sm:py-12">
+        <Link href={`/p/${id}`} className="caption mb-4 flex items-center gap-1.5 text-ink/50 hover:text-ink">
+          <Icon name="arrow-left" size={13} />
+          Back to listing
+        </Link>
         <h1 className="display-l">Checkout</h1>
 
-        <form onSubmit={pay} className="mt-6 space-y-6">
+        <form onSubmit={pay} className="mt-4 space-y-6">
           <section className="rounded-card border border-ink/12 bg-paper p-5">
             <div className="flex items-center gap-4">
               <ProductImage product={product} className="h-16 w-16 shrink-0" />

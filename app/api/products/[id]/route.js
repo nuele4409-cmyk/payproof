@@ -18,7 +18,7 @@ export async function GET(request, { params }) {
           ...(isNaN(Number(id)) ? [] : [{ id: Number(id) }]),
         ],
       },
-      include: { seller: { select: { name: true, store: true, verified: true } } },
+      include: { seller: { select: { id: true, name: true, store: true, verified: true } } },
     });
 
     if (!product) return notFound('Product not found.');
@@ -33,6 +33,7 @@ export async function GET(request, { params }) {
       description: product.description,
       image:       product.image ?? null,
       seller: s ? {
+        id:       s.id,
         name:     s.name,
         store:    s.store ?? `${s.name}'s Store`,
         verified: !!s.verified,

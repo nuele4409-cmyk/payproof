@@ -56,7 +56,7 @@ export async function POST(request) {
 
     logger.info('User logged in', { userId: user.id, role: user.role, requestId });
 
-    return ok({ user: { name: user.name, role: user.role }, token });
+    return ok({ user: { id: user.id, name: user.name, role: user.role }, token });
   } catch (err) {
     return serverError(err, 'POST /api/auth/login', requestId);
   }

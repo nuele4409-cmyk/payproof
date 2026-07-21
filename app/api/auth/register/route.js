@@ -140,7 +140,7 @@ export async function POST(request) {
       }
     }
 
-    const responseUser = { name: user.name, role: user.role };
+    const responseUser = { id: user.id, name: user.name, role: user.role };
 
     if (role === 'seller' && account) {
       responseUser.account = {
