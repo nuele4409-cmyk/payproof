@@ -3,6 +3,8 @@
 
 Escrow for online sellers. Instead of trusting screenshots, PayProof uses Monnify to verify bank transfers in real time and holds funds until the buyer confirms delivery.
 
+<img width="1280" height="934" alt="photo_5981333351366856209_y" src="https://github.com/user-attachments/assets/75627b53-95bf-4427-8fc9-32eeb9ab8494" />
+
 When a seller registers, Monnify opens a dedicated reserved account (a unique NUBAN per seller). The seller shares their storefront link on WhatsApp. The buyer visits the storefront, checks out without creating an account (name + phone only), and transfers into the reserved account. The pay page polls `GET /api/orders/[id]` every 3 seconds. When Monnify sends a webhook, PayProof verifies the transaction against Monnify's API, and the order advances through a six-state machine. The seller is only paid after the buyer confirms delivery — the money moves from the reserved account to the seller's personal settlement account via Monnify disbursement.
 
 Built for WhatsApp merchants who currently rely on payment screenshots and trust. Checkout is guest-only — buyers don't need an account to browse or buy. Buyer accounts exist only for post-purchase order tracking.
@@ -175,6 +177,7 @@ Six states. Each transitions only to the next.
 ```
 Pending Payment  ──►  Paid  ──►  Awaiting Shipment  ──►  Shipped  ──►  Delivered  ──►  Completed
 ```
+<img width="1280" height="661" alt="photo_5981333351366856100_y" src="https://github.com/user-attachments/assets/e0847b6e-60bf-4a22-8b05-268b62de27e6" />
 
 | State | Meaning | Set by |
 |---|---|---|
@@ -186,6 +189,8 @@ Pending Payment  ──►  Paid  ──►  Awaiting Shipment  ──►  Shipp
 | `Completed` | Settlement triggered | Same confirm-delivery endpoint |
 
 The `timestamps` map on each order stores an ISO-8601 string for every state the order has reached, keyed by the state string (e.g. `"Paid": "2026-07-21T10:00:00.000Z"`).
+
+<img width="1280" height="983" alt="photo_5981333351366856101_y" src="https://github.com/user-attachments/assets/892aeac7-50fe-4fb0-9e07-e4cc4afce500" />
 
 **Fraud check:** When the webhook processes a payment, `runFraudCheck` compares the amount to `seller.typicalOrder`. If the ratio exceeds 5×, the order is marked `flagged: true` with a human-readable reason. The flag is surfaced in the assistant answers and the order detail view.
 
