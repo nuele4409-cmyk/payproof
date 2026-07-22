@@ -32,3 +32,4 @@ export async function GET(request) {
     return serverError(err, 'GET /api/orders/buyer', requestId);
   }
 }
+
