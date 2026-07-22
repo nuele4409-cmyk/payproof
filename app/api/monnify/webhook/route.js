@@ -233,7 +233,7 @@ export async function handleNotification(transactionRef, eventData, isSandbox) {
         tx,
       );
 
-      await advanceState(pendingOrder.id, 'Awaiting Shipment', {}, tx);
+      await advanceState(pendingOrder.id, 'AwaitingShipment', {}, tx);
 
       await tx.webhookEvent.update({
         where: { id: transactionRef },

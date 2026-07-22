@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import AppHeader, { AppFooter } from "@/components/AppHeader";
@@ -11,12 +12,27 @@ import { Hallmark } from "@/components/Seal";
 import { useDemo } from "@/lib/store";
 import { api } from "@/lib/api";
 
+const BUYER_ORDER_IDS_KEY = "payproof-buyer-order-ids";
+
+function readBuyerOrderIds() {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(BUYER_ORDER_IDS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
 // The page a seller shares on WhatsApp — the storefront for a single listing.
 export default function ProductPage() {
   const { id } = useParams();
   const { user } = useDemo();
   const [product, setProduct] = useState(null);
   const [status, setStatus]   = useState("loading");
+  const [hasOrders, setHasOrders] = useState(false);
+
+  useEffect(() => {
+    setHasOrders(readBuyerOrderIds().length > 0);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -99,6 +115,15 @@ export default function ProductPage() {
                     <Icon name="lock" size={13} />
                     Held by Monnify until you confirm delivery
                   </p>
+                  {hasOrders && (
+                    <Link
+                      href="/buyer"
+                      className="mt-4 flex items-center justify-center gap-1.5 text-[13px] font-medium text-bottle underline-offset-2 hover:underline"
+                    >
+                      <Icon name="arrow-left" size={13} />
+                      Continue with an existing order →
+                    </Link>
+                  )}
                 </>
               )}
             </div>

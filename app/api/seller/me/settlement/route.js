@@ -1,6 +1,6 @@
 import db from '../../../../../lib/db.js';
 import { authenticate, getRequestId } from '../../../../../lib/authHelpers.js';
-import { validateBankAccount, isSandbox } from '../../../../../lib/monnifyClient.js';
+import { validateBankAccount } from '../../../../../lib/monnifyClient.js';
 import { logger } from '../../../../../lib/logger.js';
 import {
   ok,
@@ -34,23 +34,15 @@ export async function PUT(request) {
     if (!accountNumber?.trim()) return badRequest('accountNumber is required.');
 
     let validated;
-    if (isSandbox()) {
-      validated = {
-        bankCode:       bankCode.trim(),
-        accountNumber:  accountNumber.trim(),
-        accountName:    'Sandbox Account',
-      };
-    } else {
-      try {
-        validated = await validateBankAccount(bankCode.trim(), accountNumber.trim());
-      } catch (validateErr) {
-        logger.warn('Settlement account validation failed', {
-          userId: user.sub,
-          err:    validateErr,
-          requestId,
-        });
-        return badRequest('Could not validate this account. Check the bank code and account number.');
-      }
+    try {
+      validated = await validateBankAccount(bankCode.trim(), accountNumber.trim());
+    } catch (validateErr) {
+      logger.warn('Settlement account validation failed', {
+        userId: user.sub,
+        err:    validateErr,
+        requestId,
+      });
+      return badRequest('Could not validate this account. Check the bank code and account number.');
     }
 
     await db.user.update({

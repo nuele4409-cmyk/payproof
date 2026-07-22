@@ -179,7 +179,7 @@ export default function Landing() {
                   {[
                     { id: "PP-3102-88", item: "Air Max 97 (silver, 43)", amount: 18500, state: "Completed" },
                     { id: "PP-3419-12", item: "Ultraboost Light (core black, 44)", amount: 22500, state: "Shipped" },
-                    { id: "PP-3557-04", item: "iPhone 13 Pro (128GB)", amount: 250000, state: "Awaiting Shipment" },
+                    { id: "PP-3557-04", item: "iPhone 13 Pro (128GB)", amount: 250000, state: "AwaitingShipment" },
                   ].map((r) => (
                     <tr key={r.id} className="border-b border-ink/12 last:border-b-0">
                       <td className="data py-3.5 pr-4">{r.id}</td>

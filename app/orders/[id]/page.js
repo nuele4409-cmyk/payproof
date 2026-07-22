@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import AppHeader, { AppFooter } from "@/components/AppHeader";
@@ -15,7 +16,7 @@ import { formatDateTime } from "@/lib/orders";
 
 export default function OrderDetail() {
   const { id } = useParams();
-  const { confirmDelivery, showToast } = useDemo();
+  const { user, confirmDelivery, showToast } = useDemo();
   const [order, setOrder] = useState(null);
   const [status, setStatus] = useState("loading");
 
@@ -78,6 +79,13 @@ export default function OrderDetail() {
     <div className="flex min-h-screen flex-col">
       <AppHeader />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        <Link
+          href={user?.role === "seller" ? "/seller" : "/buyer"}
+          className="caption mb-4 flex items-center gap-1.5 text-ink/50 hover:text-ink"
+        >
+          <Icon name="arrow-left" size={13} />
+          Back to {user?.role === "seller" ? "ledger" : "your orders"}
+        </Link>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="flex items-baseline gap-3">
             <span className="display-l">Order</span>
@@ -126,11 +134,16 @@ export default function OrderDetail() {
             </p>
           )}
           {order.state === "Completed" && (
-            <p className="mt-7 flex items-center gap-2 border-t border-ink/12 pt-5 text-sm text-ink/70">
-              <Icon name="check" size={15} className="shrink-0 text-bottle" />
-              Funds released{seller.settlement ? ` to ${seller.settlement.bank} ${seller.settlement.masked}` : ""} — settlement
-              complete.
-            </p>
+            <div className="mt-7 border-t border-ink/12 pt-5">
+              <p className="flex items-center gap-2 text-sm text-ink/70">
+                <Icon name="check" size={15} className="shrink-0 text-bottle" />
+                Funds released{seller.settlement ? ` to ${seller.settlement.bank} ${seller.settlement.masked}` : ""} — settlement
+                complete.
+              </p>
+              <Button href={user?.role === "seller" ? "/seller" : "/buyer"} variant="secondary" className="mt-4">
+                Back to {user?.role === "seller" ? "ledger" : "your orders"}
+              </Button>
+            </div>
           )}
         </section>
 

@@ -40,17 +40,13 @@ export async function POST(request, { params }) {
     }
 
     let validated;
-    if (isSandbox()) {
-      validated = {
-        bankCode:       seller.settlementBank,
-        accountNumber:  seller.settlementNumber,
-        accountName:    seller.settlementName ?? 'Sandbox Account',
-      };
-    } else {
+    try {
       validated = await validateBankAccount(
         seller.settlementBank,
         seller.settlementNumber
       );
+    } catch (validateErr) {
+      return badRequest('Could not validate settlement account. Check your bank details in your profile.');
     }
 
     const sourceAccount = process.env.MONNIFY_WALLET_ACCOUNT_NUMBER;

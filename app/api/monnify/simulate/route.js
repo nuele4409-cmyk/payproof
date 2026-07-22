@@ -39,9 +39,9 @@ export async function POST(request) {
       );
     }
 
-    if (order.state !== 'Pending Payment') {
+    if (order.state !== 'PendingPayment') {
       return Response.json(
-        { error: `Order is "${order.state}", not Pending Payment.`, code: 'INVALID_STATE' },
+        { error: `Order is "${order.state}", not PendingPayment.`, code: 'INVALID_STATE' },
         { status: 400 }
       );
     }
@@ -55,7 +55,7 @@ export async function POST(request) {
 
     await db.$transaction(async (tx) => {
       await advanceState(order.id, 'Paid', { ref: transactionRef, flagged, flagReason }, tx);
-      await advanceState(order.id, 'Awaiting Shipment', {}, tx);
+      await advanceState(order.id, 'AwaitingShipment', {}, tx);
     });
 
     logger.info('Sandbox payment simulated', {

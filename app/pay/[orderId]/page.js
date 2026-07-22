@@ -24,7 +24,7 @@ export default function PayPage() {
     try {
       const o = await api.orders.get(orderId);
       if (!o) { setStatus("notfound"); return; }
-      if (o.state === "Pending Payment") sawPending.current = true;
+      if (o.state === "PendingPayment") sawPending.current = true;
       setOrder(o);
       setStatus("ready");
     } catch {
@@ -37,18 +37,22 @@ export default function PayPage() {
     let timer = null;
 
     const tick = async () => {
-      const o = await api.orders.get(orderId);
-      if (!alive) return;
-      if (!o) { setStatus("notfound"); return; }
-      setOrder((prev) => {
-        if (prev?.state === "Pending Payment" && o.state !== "Pending Payment") {
-          setAnimate(true);
+      try {
+        const o = await api.orders.get(orderId);
+        if (!alive) return;
+        if (!o) { setStatus("notfound"); return; }
+        setOrder((prev) => {
+          if (prev?.state === "PendingPayment" && o.state !== "PendingPayment") {
+            setAnimate(true);
+          }
+          return o;
+        });
+        setStatus("ready");
+        if (o.state === "PendingPayment") {
+          timer = setTimeout(tick, 3000);
         }
-        return o;
-      });
-      setStatus("ready");
-      if (o.state === "Pending Payment") {
-        timer = setTimeout(tick, 3000);
+      } catch {
+        if (alive) timer = setTimeout(tick, 3000);
       }
     };
 
@@ -225,6 +229,18 @@ export default function PayPage() {
                   </Button>
                 )}
               </div>
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}/orders/${order.id}`;
+                  navigator.clipboard.writeText(url).then(
+                    () => showToast("Order link copied"),
+                    () => showToast(url)
+                  );
+                }}
+                className="mt-3 text-[13px] font-medium text-ink/50 underline-offset-2 hover:text-ink hover:underline"
+              >
+                Copy order link to track later
+              </button>
             </div>
           </div>
         )}

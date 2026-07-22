@@ -1,11 +1,22 @@
 import { NextResponse } from 'next/server';
 
 function buildCorsHeaders(origin) {
+  const isDev = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
   const raw = process.env.ALLOWED_ORIGINS ?? '';
   const allowed = raw
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
+
+  if (!isDev && allowed.length === 0) {
+    return {
+      'access-control-allow-origin':  '',
+      'access-control-allow-methods': 'GET,POST,PUT,DELETE,OPTIONS',
+      'access-control-allow-headers': 'Content-Type, Authorization, X-Request-Id',
+      'access-control-expose-headers': 'X-Request-Id',
+      'access-control-max-age':       '86400',
+    };
+  }
 
   const allowOrigin =
     allowed.length === 0 || allowed.includes(origin) ? origin || '*' : '';

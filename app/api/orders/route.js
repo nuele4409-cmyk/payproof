@@ -6,6 +6,7 @@ import {
   ok,
   badRequest,
   unauthorized,
+  forbidden,
   serverError,
 } from '../../../lib/apiResponse.js';
 import db from '../../../lib/db.js';
@@ -16,6 +17,7 @@ export async function GET(request) {
   try {
     const user = authenticate(request);
     if (!user) return unauthorized();
+    if (user.role !== 'seller') return forbidden();
 
     const orders = await listOrders({ sellerId: user.sub });
 

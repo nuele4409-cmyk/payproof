@@ -6,12 +6,26 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  buyer
+  seller
+}
+
+enum OrderState {
+  PendingPayment
+  Paid
+  AwaitingShipment
+  Shipped
+  Delivered
+  Completed
+}
+
 model User {
   id           Int      @id @default(autoincrement())
   contact      String   @unique
   name         String
   passwordHash String
-  role         String
+  role         Role
 
   store    String?
   verified Boolean @default(false)
@@ -61,7 +75,7 @@ model Order {
   item   String
   amount Int
 
-  state  String @default("Pending Payment")
+  state  OrderState @default(PendingPayment)
 
   flagged    Boolean @default(false)
   flagReason String?

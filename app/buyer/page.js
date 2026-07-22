@@ -73,7 +73,7 @@ export default function BuyerDashboard() {
                       Confirm Delivery
                     </Button>
                   )}
-                  {o.state === "Pending Payment" && (
+                  {o.state === "PendingPayment" && (
                     <Button size="sm" variant="secondary" href={`/pay/${o.id}`}>
                       Complete payment
                     </Button>

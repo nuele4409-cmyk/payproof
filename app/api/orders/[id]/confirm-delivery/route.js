@@ -16,24 +16,23 @@ export async function POST(request, { params }) {
 
   try {
     const user = authenticate(request);
-    if (!user) return unauthorized();
 
     const { id } = await params;
 
     const dbOrder = await db.order.findUnique({ where: { id } });
     if (!dbOrder) return notFound(`Order ${id} not found.`);
 
-    if (dbOrder.sellerId === user.sub) {
+    const isAnonymous = dbOrder.buyerId === null;
+
+    if (user && dbOrder.sellerId === user.sub) {
       return forbidden('Sellers cannot confirm delivery on their own orders.');
     }
 
-    if (dbOrder.buyerId === null) {
-      return forbidden(
-        'This order was placed without an account. Contact support to confirm delivery.'
-      );
-    }
-    if (dbOrder.buyerId !== user.sub) {
-      return forbidden('Only the buyer who placed this order can confirm delivery.');
+    if (!isAnonymous) {
+      if (!user) return unauthorized();
+      if (dbOrder.buyerId !== user.sub) {
+        return forbidden('Only the buyer who placed this order can confirm delivery.');
+      }
     }
 
     let completed;
@@ -57,8 +56,8 @@ export async function POST(request, { params }) {
 
     logger.info('Delivery confirmed', {
       orderId: id,
-      userId:  user.sub,
-      role:    user.role,
+      userId:  user?.sub ?? null,
+      role:    user?.role ?? 'anonymous',
       requestId,
     });
 

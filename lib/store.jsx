@@ -78,11 +78,18 @@ export function DemoProvider({ children }) {
           if (alive) setOrders([]);
         }
       } else if (currentUser?.role === "buyer") {
-        const ids = readBuyerOrderIds();
         try {
-          const fetched = await Promise.all(ids.map((id) => api.orders.get(id).catch(() => null)));
+          const [serverOrders, ids] = await Promise.all([
+            api.orders.buyerList(),
+            Promise.resolve(readBuyerOrderIds()),
+          ]);
+          const serverIds = new Set(serverOrders.map((o) => o.id));
+          const localOnly  = await Promise.all(
+            ids.filter((id) => !serverIds.has(id))
+              .map((id) => api.orders.get(id).catch(() => null))
+          );
           if (!alive) return;
-          setOrders(fetched.filter(Boolean));
+          setOrders([...serverOrders, ...localOnly.filter(Boolean)]);
         } catch {
           if (alive) setOrders([]);
         }

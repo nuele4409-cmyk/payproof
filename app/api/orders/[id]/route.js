@@ -1,4 +1,4 @@
-import { getRequestId } from '../../../../lib/authHelpers.js';
+import { authenticate, getRequestId } from '../../../../lib/authHelpers.js';
 import { logger } from '../../../../lib/logger.js';
 import { ok, notFound, serverError } from '../../../../lib/apiResponse.js';
 import db from '../../../../lib/db.js';
@@ -7,6 +7,8 @@ export async function GET(request, { params }) {
   const requestId = getRequestId(request);
 
   try {
+    const user = authenticate(request);
+
     const { id } = await params;
 
     const dbOrder = await db.order.findUnique({
@@ -14,7 +16,7 @@ export async function GET(request, { params }) {
       select: {
         id: true, ref: true, buyer: true, phone: true, item: true,
         amount: true, state: true, flagged: true, flagReason: true,
-        timestamps: true,
+        timestamps: true, buyerId: true,
         sellerId: true,
         seller: {
           select: {
@@ -32,6 +34,9 @@ export async function GET(request, { params }) {
       logger.warn('Order not found', { orderId: id, requestId });
       return notFound(`Order ${id} not found.`);
     }
+
+    const isSeller = user && user.sub === dbOrder.sellerId;
+    const isBuyer  = user && user.sub === dbOrder.buyerId;
 
     const s = dbOrder.seller;
     const order = {
@@ -51,11 +56,12 @@ export async function GET(request, { params }) {
         number: s.reservedNumber,
         name:   s.reservedName,
       } : null,
-      settlement: s.settlementNumber ? {
+      // Only the seller sees settlement account details
+      settlement: isSeller && s.settlementNumber ? {
         bank:   s.settlementBank,
         masked: `••••${s.settlementNumber.slice(-4)}`,
         name:   s.settlementName,
-      } : null,
+      } : undefined,
       storefrontSlug: s.products?.[0]?.slug ?? null,
     } : null;
 
