@@ -1,3 +1,4 @@
+
 # PayProof
 
 Escrow for online sellers. Instead of trusting screenshots, PayProof uses Monnify to verify bank transfers in real time and holds funds until the buyer confirms delivery.
@@ -69,6 +70,7 @@ Seller                                                      │
  │                      │   settlement account             │
  │                      │─────────────────────────────────►│
 ```
+<img width="862" height="478" alt="Screenshot 2026-07-22 at 06 17 19" src="https://github.com/user-attachments/assets/9f40677c-6361-4dc6-9f68-a79c3a102b20" />
 
 ### Frontend pages
 
